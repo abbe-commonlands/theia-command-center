@@ -8,26 +8,23 @@
     done: "Done",
   };
   const PRIORITY_COLORS = {
-    low: "badge-neutral",
-    medium: "badge-cyan",
-    high: "badge-amber",
-    urgent: "badge-red",
-  };
-
-  // Agent models mapping
-  const AGENT_MODELS = {
-    "agent:main:main": { model: "claude-opus-4", displayName: "Claude Opus 4" },
-    "agent:sales:main": { model: "claude-sonnet-4", displayName: "Claude Sonnet 4" },
-    "agent:marketing:main": { model: "claude-sonnet-4", displayName: "Claude Sonnet 4" },
-    "agent:engineering:main": { model: "claude-sonnet-4", displayName: "Claude Sonnet 4" },
-    "agent:operations:main": { model: "claude-sonnet-4", displayName: "Claude Sonnet 4" },
-    "agent:softwaredeveloper:main": { model: "codex", displayName: "OpenAI Codex" },
+    1: "badge-neutral",
+    2: "badge-neutral",
+    3: "badge-neutral",
+    4: "badge-cyan",
+    5: "badge-cyan",
+    6: "badge-cyan",
+    7: "badge-amber",
+    8: "badge-amber",
+    9: "badge-red",
+    10: "badge-red",
   };
 
   let cachedAgents = [];
   let cachedTasks = [];
   let editingTaskId = null;
   let draggedTask = null;
+  let useConvex = false;
 
   function $(selector) {
     return document.querySelector(selector);
@@ -46,13 +43,63 @@
     return div.innerHTML;
   }
 
+  // Get the database interface (Convex or IndexedDB)
+  function getDB() {
+    if (useConvex && window.Convex) {
+      return window.Convex;
+    }
+    return window.DB;
+  }
+
+  // ============ Real-Time Subscriptions ============
+
+  function setupRealtimeSubscriptions() {
+    if (!window.Convex) return;
+
+    // Subscribe to agents changes
+    window.Convex.agents.onChange((agents) => {
+      console.log("🔄 Agents updated (real-time):", agents.length);
+      cachedAgents = agents;
+      renderAgents();
+      populateAssigneeSelect();
+    });
+
+    // Subscribe to tasks changes
+    window.Convex.tasks.onChange((tasks) => {
+      console.log("🔄 Tasks updated (real-time):", tasks.length);
+      cachedTasks = tasks;
+      renderKanban();
+      updateTaskCount();
+    });
+
+    // Also listen for custom events (backup)
+    window.addEventListener("convex:agents", (e) => {
+      cachedAgents = e.detail || [];
+      renderAgents();
+      populateAssigneeSelect();
+    });
+
+    window.addEventListener("convex:tasks", (e) => {
+      cachedTasks = e.detail || [];
+      renderKanban();
+      updateTaskCount();
+    });
+  }
+
   // ============ Agents ============
 
   async function loadAgents() {
-    if (!window.DB) return;
-    cachedAgents = await window.DB.agents.list();
-    renderAgents();
-    populateAssigneeSelect();
+    const db = getDB();
+    if (!db) return;
+    
+    try {
+      cachedAgents = await db.agents.list();
+      renderAgents();
+      populateAssigneeSelect();
+    } catch (err) {
+      console.error("Failed to load agents:", err);
+      showToast("Failed to load agents", "error");
+    }
   }
 
   function renderAgents() {
@@ -61,9 +108,8 @@
     container.innerHTML = "";
 
     cachedAgents.forEach((agent) => {
-      const modelInfo = AGENT_MODELS[agent.sessionKey] || { model: "unknown", displayName: "Unknown" };
       const card = createEl("div", "agent-card");
-      card.dataset.sessionKey = agent.sessionKey;
+      card.dataset.id = agent._id || agent.id;
       card.innerHTML = `
         <div class="agent-icon">${agent.emoji || "🤖"}</div>
         <div class="agent-name">${agent.name}</div>
@@ -73,20 +119,16 @@
           <span>${agent.status || "idle"}</span>
         </div>
         <div style="margin-top: var(--space-xs); font-size: var(--text-caption); color: var(--accent-cyan);">
-          ${modelInfo.displayName}
+          ${agent.model || "sonnet"}
         </div>
       `;
       
-      // Click to open agent session
       card.addEventListener("click", () => openAgentSession(agent));
       container.appendChild(card);
     });
   }
 
   function openAgentSession(agent) {
-    const modelInfo = AGENT_MODELS[agent.sessionKey] || { model: "unknown", displayName: "Unknown" };
-    
-    // Show agent detail modal
     const modal = $("#task-modal");
     const title = $("#modal-title");
     const form = $("#task-form");
@@ -94,7 +136,12 @@
     
     title.textContent = `${agent.emoji} ${agent.name}`;
     
-    // Replace form content with agent info
+    // Get tasks assigned to this agent
+    const agentId = agent._id || agent.id;
+    const agentTasks = cachedTasks.filter(t => 
+      t.assigneeIds?.includes(agentId) && t.status !== 'done'
+    );
+    
     form.innerHTML = `
       <div style="display: flex; flex-direction: column; gap: var(--space-md);">
         <div class="form-group">
@@ -109,9 +156,7 @@
         </div>
         <div class="form-group">
           <label class="form-label">Model</label>
-          <div style="display: flex; align-items: center; gap: var(--space-sm);">
-            <span class="badge badge-cyan">${modelInfo.displayName}</span>
-          </div>
+          <span class="badge badge-cyan">${agent.model || "sonnet"}</span>
         </div>
         <div class="form-group">
           <label class="form-label">Status</label>
@@ -121,42 +166,27 @@
           </div>
         </div>
         <div class="form-group">
-          <label class="form-label">Assigned Tasks</label>
-          <div id="agent-tasks" style="max-height: 150px; overflow-y: auto;"></div>
+          <label class="form-label">Assigned Tasks (${agentTasks.length})</label>
+          <div id="agent-tasks" style="max-height: 150px; overflow-y: auto;">
+            ${agentTasks.length === 0 
+              ? `<p style="color: var(--text-muted); font-size: var(--text-caption);">No active tasks</p>`
+              : agentTasks.map(t => `
+                  <div style="padding: 8px; background: var(--bg-primary); border-radius: var(--radius-sm); margin-bottom: 4px; font-size: var(--text-caption);">
+                    <span class="badge ${PRIORITY_COLORS[t.priority] || 'badge-neutral'}" style="font-size: 10px;">P${t.priority}</span>
+                    ${escapeHtml(t.title)}
+                  </div>
+                `).join('')
+            }
+          </div>
         </div>
       </div>
     `;
     
-    // Show assigned tasks
-    const agentTasks = cachedTasks.filter(t => t.assigneeId === agent.id && t.status !== 'done');
-    const tasksContainer = $("#agent-tasks");
-    if (agentTasks.length === 0) {
-      tasksContainer.innerHTML = `<p style="color: var(--text-muted); font-size: var(--text-caption);">No active tasks</p>`;
-    } else {
-      tasksContainer.innerHTML = agentTasks.map(t => `
-        <div style="padding: 8px; background: var(--bg-primary); border-radius: var(--radius-sm); margin-bottom: 4px; font-size: var(--text-caption);">
-          <span class="badge ${PRIORITY_COLORS[t.priority]}" style="font-size: 10px;">${t.priority}</span>
-          ${escapeHtml(t.title)}
-        </div>
-      `).join('');
-    }
-    
-    // Update footer with Open Session button
     footer.innerHTML = `
       <button type="button" class="btn btn-secondary" id="modal-cancel">Close</button>
-      <button type="button" class="btn btn-primary" id="open-session-btn">
-        Open Session →
-      </button>
     `;
     
     $("#modal-cancel").addEventListener("click", closeTaskModal);
-    $("#open-session-btn").addEventListener("click", () => {
-      // This would integrate with Clawdbot's session system
-      showToast(`Opening ${agent.name} session... (${agent.sessionKey})`, "info");
-      closeTaskModal();
-      // In real integration: window.Clawdbot.openSession(agent.sessionKey)
-    });
-    
     modal.classList.add("open");
   }
 
@@ -170,7 +200,7 @@
     
     cachedAgents.forEach((agent) => {
       const option = document.createElement("option");
-      option.value = agent.id;
+      option.value = agent._id || agent.id;
       option.textContent = `${agent.emoji} ${agent.name}`;
       select.appendChild(option);
     });
@@ -179,10 +209,17 @@
   // ============ Tasks ============
 
   async function loadTasks() {
-    if (!window.DB) return;
-    cachedTasks = await window.DB.tasks.list();
-    renderKanban();
-    updateTaskCount();
+    const db = getDB();
+    if (!db) return;
+    
+    try {
+      cachedTasks = await db.tasks.list();
+      renderKanban();
+      updateTaskCount();
+    } catch (err) {
+      console.error("Failed to load tasks:", err);
+      showToast("Failed to load tasks", "error");
+    }
   }
 
   function renderKanban() {
@@ -192,6 +229,9 @@
 
     STATUS_COLUMNS.forEach((status) => {
       const tasks = cachedTasks.filter((t) => t.status === status);
+      // Sort by priority (high to low)
+      tasks.sort((a, b) => (b.priority || 5) - (a.priority || 5));
+      
       const column = createEl("div", "kanban-column");
       column.dataset.status = status;
       
@@ -205,7 +245,7 @@
       
       const tasksContainer = column.querySelector(".kanban-tasks");
       
-      // Drag and drop events on column
+      // Drag and drop events
       tasksContainer.addEventListener("dragover", handleDragOver);
       tasksContainer.addEventListener("dragenter", handleDragEnter);
       tasksContainer.addEventListener("dragleave", handleDragLeave);
@@ -221,24 +261,25 @@
   }
 
   function renderTaskCard(task) {
-    const agent = cachedAgents.find((a) => a.id === task.assigneeId);
+    const taskId = task._id || task.id;
+    const assignees = cachedAgents.filter(a => 
+      task.assigneeIds?.includes(a._id || a.id)
+    );
+    
     const card = createEl("div", "task-card");
-    card.dataset.taskId = task.id;
+    card.dataset.taskId = taskId;
     card.draggable = true;
     
     card.innerHTML = `
       <div class="task-title">${escapeHtml(task.title)}</div>
       <div class="task-meta">
-        <span class="badge ${PRIORITY_COLORS[task.priority] || "badge-neutral"}">${task.priority}</span>
-        <span>${agent ? agent.emoji : "—"}</span>
+        <span class="badge ${PRIORITY_COLORS[task.priority] || "badge-cyan"}">P${task.priority || 5}</span>
+        <span>${assignees.length > 0 ? assignees.map(a => a.emoji).join(' ') : "—"}</span>
       </div>
     `;
     
-    // Drag events
     card.addEventListener("dragstart", handleDragStart);
     card.addEventListener("dragend", handleDragEnd);
-    
-    // Click to show details/blockers
     card.addEventListener("click", () => openTaskDetail(task));
     
     return card;
@@ -256,8 +297,6 @@
   function handleDragEnd(e) {
     e.target.classList.remove("dragging");
     draggedTask = null;
-    
-    // Remove all drag-over highlights
     document.querySelectorAll(".kanban-tasks").forEach(col => {
       col.classList.remove("drag-over");
     });
@@ -287,11 +326,15 @@
     
     if (!taskId || !newStatus) return;
     
-    // Update task in database
     try {
-      await window.DB.tasks.update(taskId, { status: newStatus });
+      const db = getDB();
+      await db.tasks.update(taskId, { status: newStatus });
       showToast(`Task moved to ${STATUS_LABELS[newStatus]}`, "success");
-      await loadTasks(); // Refresh the board
+      
+      // If not using real-time, refresh manually
+      if (!useConvex) {
+        await loadTasks();
+      }
     } catch (err) {
       console.error("Failed to update task:", err);
       showToast("Failed to move task", "error");
@@ -301,8 +344,10 @@
   // ============ Task Detail Modal ============
 
   function openTaskDetail(task) {
-    editingTaskId = task.id;
-    const agent = cachedAgents.find(a => a.id === task.assigneeId);
+    editingTaskId = task._id || task.id;
+    const assignees = cachedAgents.filter(a => 
+      task.assigneeIds?.includes(a._id || a.id)
+    );
     
     const modal = $("#task-modal");
     const title = $("#modal-title");
@@ -311,41 +356,23 @@
     
     title.textContent = task.title;
     
-    // Determine blockers based on task state
-    let blockers = [];
-    if (task.status === "inbox") {
-      blockers.push("Not yet assigned or started");
-    }
-    if (task.description && task.description.toLowerCase().includes("waiting")) {
-      blockers.push("Waiting on external dependency");
-    }
-    if (task.description && task.description.toLowerCase().includes("api key")) {
-      blockers.push("Missing API key or credentials");
-    }
-    if (task.description && task.description.toLowerCase().includes("approval")) {
-      blockers.push("Needs approval");
-    }
-    if (task.description && task.description.toLowerCase().includes("decision")) {
-      blockers.push("Pending decision");
-    }
-    if (task.priority === "urgent" && task.status !== "in_progress") {
-      blockers.push("Urgent task not yet in progress");
-    }
-    
     form.innerHTML = `
       <div style="display: flex; flex-direction: column; gap: var(--space-md);">
         <div class="form-group">
           <label class="form-label">Status</label>
           <div style="display: flex; align-items: center; gap: var(--space-sm);">
             <span class="badge badge-cyan">${STATUS_LABELS[task.status]}</span>
-            <span class="badge ${PRIORITY_COLORS[task.priority]}">${task.priority} priority</span>
+            <span class="badge ${PRIORITY_COLORS[task.priority] || 'badge-cyan'}">Priority ${task.priority || 5}</span>
           </div>
         </div>
         
         <div class="form-group">
           <label class="form-label">Assigned To</label>
           <div style="color: var(--text-primary);">
-            ${agent ? `${agent.emoji} ${agent.name} (${agent.role})` : 'Unassigned'}
+            ${assignees.length > 0 
+              ? assignees.map(a => `${a.emoji} ${a.name}`).join(', ')
+              : 'Unassigned'
+            }
           </div>
         </div>
         
@@ -356,21 +383,28 @@
           </div>
         </div>
         
+        ${task.deliverables ? `
+          <div class="form-group">
+            <label class="form-label" style="color: var(--accent-green);">📦 Deliverables</label>
+            <div style="color: var(--text-secondary); white-space: pre-wrap; background: var(--bg-primary); padding: var(--space-sm); border-radius: var(--radius-sm);">
+              ${escapeHtml(task.deliverables)}
+            </div>
+          </div>
+        ` : ''}
+        
+        ${task.verifiedAt ? `
+          <div class="form-group">
+            <label class="form-label" style="color: var(--accent-green);">✓ Verified</label>
+            <div style="color: var(--text-muted); font-size: var(--text-caption);">
+              ${new Date(task.verifiedAt).toLocaleString()}
+            </div>
+          </div>
+        ` : ''}
+        
         <div class="form-group">
-          <label class="form-label" style="color: ${blockers.length > 0 ? 'var(--accent-amber)' : 'var(--accent-green)'};">
-            ${blockers.length > 0 ? '⚠️ Blockers' : '✅ No Blockers'}
-          </label>
-          <div style="display: flex; flex-direction: column; gap: var(--space-xs);">
-            ${blockers.length > 0 
-              ? blockers.map(b => `
-                  <div style="display: flex; align-items: center; gap: var(--space-xs); padding: 8px; background: rgba(255, 184, 0, 0.1); border: 1px solid rgba(255, 184, 0, 0.3); border-radius: var(--radius-sm); font-size: var(--text-caption); color: var(--accent-amber);">
-                    <span>🚧</span> ${escapeHtml(b)}
-                  </div>
-                `).join('')
-              : `<div style="padding: 8px; background: rgba(0, 255, 136, 0.1); border: 1px solid rgba(0, 255, 136, 0.3); border-radius: var(--radius-sm); font-size: var(--text-caption); color: var(--accent-green);">
-                  Ready to progress
-                </div>`
-            }
+          <label class="form-label">Created By</label>
+          <div style="color: var(--text-muted); font-size: var(--text-caption);">
+            ${task.createdByName || 'Unknown'}
           </div>
         </div>
       </div>
@@ -398,10 +432,15 @@
       progressBtn.addEventListener("click", async () => {
         const nextStatus = getNextStatus(task.status);
         if (nextStatus) {
-          await window.DB.tasks.update(task.id, { status: nextStatus });
-          showToast(`Task moved to ${STATUS_LABELS[nextStatus]}`, "success");
-          closeTaskModal();
-          await loadTasks();
+          try {
+            const db = getDB();
+            await db.tasks.update(editingTaskId, { status: nextStatus });
+            showToast(`Task moved to ${STATUS_LABELS[nextStatus]}`, "success");
+            closeTaskModal();
+            if (!useConvex) await loadTasks();
+          } catch (err) {
+            showToast("Failed to update task", "error");
+          }
         }
       });
     }
@@ -428,7 +467,7 @@
   // ============ Edit Task Modal ============
 
   function openTaskModal(task = null) {
-    editingTaskId = task?.id || null;
+    editingTaskId = task?._id || task?.id || null;
     
     const modal = $("#task-modal");
     const title = $("#modal-title");
@@ -437,7 +476,6 @@
     
     title.textContent = task ? "Edit Task" : "New Task";
     
-    // Restore original form
     form.innerHTML = `
       <div class="form-group">
         <label class="form-label" for="task-title-input">Title</label>
@@ -449,12 +487,18 @@
       </div>
       <div class="form-row">
         <div class="form-group">
-          <label class="form-label" for="task-priority">Priority</label>
+          <label class="form-label" for="task-priority">Priority (1-10)</label>
           <select id="task-priority" class="input select">
-            <option value="low">Low</option>
-            <option value="medium" selected>Medium</option>
-            <option value="high">High</option>
-            <option value="urgent">Urgent</option>
+            <option value="1">1 - Someday</option>
+            <option value="2">2 - Low</option>
+            <option value="3">3 - Low</option>
+            <option value="4">4 - Medium-Low</option>
+            <option value="5" selected>5 - Medium</option>
+            <option value="6">6 - Medium-High</option>
+            <option value="7">7 - High (48h)</option>
+            <option value="8">8 - High (24h)</option>
+            <option value="9">9 - Urgent (Today)</option>
+            <option value="10">10 - CRITICAL</option>
           </select>
         </div>
         <div class="form-group">
@@ -476,19 +520,16 @@
       </div>
     `;
     
-    // Repopulate assignee dropdown
     populateAssigneeSelect();
     
-    // Populate if editing
     if (task) {
       $("#task-title-input").value = task.title || "";
       $("#task-desc").value = task.description || "";
-      $("#task-priority").value = task.priority || "medium";
-      $("#task-assignee").value = task.assigneeId || "";
+      $("#task-priority").value = task.priority || 5;
+      $("#task-assignee").value = task.assigneeIds?.[0] || "";
       $("#task-status").value = task.status || "inbox";
     }
     
-    // Restore footer
     footer.innerHTML = `
       <button type="button" class="btn btn-secondary" id="modal-cancel">Cancel</button>
       <button type="submit" form="task-form" class="btn btn-primary" id="modal-save">Save Task</button>
@@ -509,30 +550,43 @@
   async function saveTask(e) {
     e.preventDefault();
     
-    const taskData = {
-      title: $("#task-title-input").value.trim(),
-      description: $("#task-desc").value.trim(),
-      priority: $("#task-priority").value,
-      assigneeId: $("#task-assignee").value || null,
-      status: $("#task-status").value,
-    };
+    const title = $("#task-title-input").value.trim();
+    const description = $("#task-desc").value.trim();
+    const priority = parseInt($("#task-priority").value);
+    const assigneeId = $("#task-assignee").value || null;
+    const status = $("#task-status").value;
     
-    if (!taskData.title) {
+    if (!title) {
       showToast("Please enter a task title", "warning");
       return;
     }
     
     try {
+      const db = getDB();
+      
       if (editingTaskId) {
-        await window.DB.tasks.update(editingTaskId, taskData);
+        // Update existing task
+        await db.tasks.update(editingTaskId, { status });
+        if (priority) {
+          await db.tasks.update(editingTaskId, { priority });
+        }
+        if (assigneeId) {
+          await db.tasks.update(editingTaskId, { assigneeIds: [assigneeId] });
+        }
         showToast("Task updated", "success");
       } else {
-        await window.DB.tasks.add(taskData);
+        // Create new task
+        await db.tasks.add({
+          title,
+          description,
+          priority,
+          createdBySession: "agent:main:main", // Default to Abbe
+        });
         showToast("Task created", "success");
       }
       
       closeTaskModal();
-      await loadTasks();
+      if (!useConvex) await loadTasks();
     } catch (err) {
       showToast("Failed to save task", "error");
       console.error(err);
@@ -586,8 +640,31 @@
 
   async function init() {
     bindEvents();
+    
+    // Try to use Convex if available
+    if (window.Convex) {
+      try {
+        await window.Convex.init();
+        useConvex = true;
+        console.log("✅ Using Convex (real-time enabled)");
+        setupRealtimeSubscriptions();
+        
+        // Seed agents if needed
+        await window.Convex.agents.seed();
+      } catch (err) {
+        console.warn("Convex init failed, falling back to IndexedDB:", err);
+        useConvex = false;
+      }
+    }
+    
+    // Initial data load
     await loadAgents();
     await loadTasks();
+    
+    // Show connection status
+    if (useConvex) {
+      showToast("🔴 Live: Real-time sync enabled", "success");
+    }
   }
 
   async function refresh() {
@@ -600,5 +677,6 @@
     refresh,
     openTaskModal,
     showToast,
+    isRealtime: () => useConvex,
   };
 })();

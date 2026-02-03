@@ -1,6 +1,17 @@
 import { mutation, query } from "./_generated/server";
 import { v } from "convex/values";
 
+// List all messages
+export const list = query({
+  args: { limit: v.optional(v.number()) },
+  handler: async (ctx, args) => {
+    return await ctx.db
+      .query("messages")
+      .order("desc")
+      .take(args.limit ?? 50);
+  },
+});
+
 // Get messages for a task
 export const listByTask = query({
   args: { taskId: v.id("tasks") },

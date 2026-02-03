@@ -98,14 +98,15 @@ export const seed = mutation({
       { sessionKey: "agent:main:main", name: "Abbe", role: "Squad Lead", emoji: "🧠", discordChannel: "#general", model: "opus" },
       { sessionKey: "agent:seidel:main", name: "Seidel", role: "Sales Operations", emoji: "💼", discordChannel: "#sales", model: "sonnet" },
       { sessionKey: "agent:iris:main", name: "Iris", role: "Marketing", emoji: "🎨", discordChannel: "#marketing", model: "sonnet" },
-      { sessionKey: "agent:theia:main", name: "Theia", role: "Engineering", emoji: "🔬", discordChannel: null, model: "sonnet" },
+      { sessionKey: "agent:theia:main", name: "Theia", role: "Engineering", emoji: "🔬", model: "sonnet" },
       { sessionKey: "agent:photon:main", name: "Photon", role: "Operations", emoji: "⚙️", discordChannel: "#operations", model: "sonnet" },
       { sessionKey: "agent:zernike:main", name: "Zernike", role: "Software Dev", emoji: "💻", discordChannel: "#dev", model: "codex" },
       { sessionKey: "agent:kanban:main", name: "Kanban", role: "Warehouse", emoji: "📦", discordChannel: "#warehouse", model: "sonnet" },
       { sessionKey: "agent:deming:main", name: "Deming", role: "Quality", emoji: "✅", discordChannel: "#quality", model: "sonnet" },
-      { sessionKey: "agent:ernst:main", name: "Ernst", role: "Task Verification", emoji: "✓", discordChannel: null, model: "sonnet" },
+      { sessionKey: "agent:ernst:main", name: "Ernst", role: "Task Verification", emoji: "✓", model: "sonnet" },
     ];
 
+    let seededCount = 0;
     for (const agent of agents) {
       const existing = await ctx.db
         .query("agents")
@@ -118,9 +119,10 @@ export const seed = mutation({
           status: "idle",
           lastActiveAt: Date.now(),
         });
+        seededCount++;
       }
     }
 
-    return { seeded: agents.length };
+    return { seeded: seededCount, total: agents.length };
   },
 });

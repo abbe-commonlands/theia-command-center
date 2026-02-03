@@ -3,3 +3,5 @@ node_modules/
 database/*.db
 data/embeddings.json
 *.log
+
+.env.local
