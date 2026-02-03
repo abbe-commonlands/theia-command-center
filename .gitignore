@@ -5,3 +5,5 @@ data/embeddings.json
 *.log
 
 .env.local
+.vercel
+.env*.local

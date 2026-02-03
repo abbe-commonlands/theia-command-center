@@ -174,7 +174,9 @@
 
   async function init() {
     await openDB();
-    await seedDefaultAgents();
+    // Skip seeding if Convex will be used (Convex has the real data)
+    // The seed was only for offline/demo mode
+    // await seedDefaultAgents();
     return true;
   }
 

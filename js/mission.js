@@ -720,9 +720,21 @@
         await window.Convex.init();
         useConvex = true;
         console.log("✅ Using Convex (real-time enabled)");
+        
+        // Clear IndexedDB to avoid stale data conflicts
+        if (window.DB) {
+          try {
+            await window.DB.agents.clear();
+            await window.DB.tasks.clear();
+            console.log("✓ Cleared local cache (using Convex)");
+          } catch (e) {
+            console.warn("Could not clear IndexedDB:", e);
+          }
+        }
+        
         setupRealtimeSubscriptions();
         
-        // Seed agents if needed
+        // Seed agents if needed (Convex will skip if already seeded)
         await window.Convex.agents.seed();
       } catch (err) {
         console.warn("Convex init failed, falling back to IndexedDB:", err);
