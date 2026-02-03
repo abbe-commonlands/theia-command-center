@@ -110,6 +110,24 @@
     cachedAgents.forEach((agent) => {
       const card = createEl("div", "agent-card");
       card.dataset.id = agent._id || agent.id;
+      
+      // Context usage display
+      const contextPercent = agent.contextPercent || 0;
+      const contextColor = contextPercent >= 80 ? 'var(--accent-red)' : 
+                          contextPercent >= 50 ? 'var(--accent-amber)' : 
+                          'var(--accent-green)';
+      const contextBar = agent.contextUsed ? `
+        <div style="margin-top: var(--space-xs); width: 100%;">
+          <div style="display: flex; justify-content: space-between; font-size: 10px; color: var(--text-muted); margin-bottom: 2px;">
+            <span>Context</span>
+            <span style="color: ${contextColor};">${contextPercent}%</span>
+          </div>
+          <div style="height: 4px; background: var(--bg-primary); border-radius: 2px; overflow: hidden;">
+            <div style="height: 100%; width: ${contextPercent}%; background: ${contextColor}; transition: width 0.3s;"></div>
+          </div>
+        </div>
+      ` : '';
+      
       card.innerHTML = `
         <div class="agent-icon">${agent.emoji || "🤖"}</div>
         <div class="agent-name">${agent.name}</div>
@@ -121,6 +139,7 @@
         <div style="margin-top: var(--space-xs); font-size: var(--text-caption); color: var(--accent-cyan);">
           ${agent.model || "sonnet"}
         </div>
+        ${contextBar}
       `;
       
       card.addEventListener("click", () => openAgentSession(agent));
@@ -141,6 +160,15 @@
     const agentTasks = cachedTasks.filter(t => 
       t.assigneeIds?.includes(agentId) && t.status !== 'done'
     );
+    
+    // Context usage display
+    const contextPercent = agent.contextPercent || 0;
+    const contextUsed = agent.contextUsed || 0;
+    const contextCap = agent.contextCap || 200000;
+    const contextColor = contextPercent >= 80 ? 'var(--accent-red)' : 
+                        contextPercent >= 50 ? 'var(--accent-amber)' : 
+                        'var(--accent-green)';
+    const lastSleep = agent.lastSleepAt ? new Date(agent.lastSleepAt).toLocaleString() : 'Never';
     
     form.innerHTML = `
       <div style="display: flex; flex-direction: column; gap: var(--space-md);">
@@ -165,9 +193,34 @@
             <span style="text-transform: capitalize;">${agent.status || 'idle'}</span>
           </div>
         </div>
+        
+        <!-- Context Usage Section -->
+        <div class="form-group">
+          <label class="form-label" style="color: ${contextColor};">
+            ${contextPercent >= 80 ? '⚠️' : '📊'} Context Usage
+          </label>
+          <div style="background: var(--bg-primary); padding: var(--space-sm); border-radius: var(--radius-sm);">
+            <div style="display: flex; justify-content: space-between; margin-bottom: 4px;">
+              <span style="font-size: var(--text-caption); color: var(--text-muted);">
+                ${contextUsed.toLocaleString()} / ${contextCap.toLocaleString()} tokens
+              </span>
+              <span style="font-size: var(--text-caption); font-weight: 600; color: ${contextColor};">
+                ${contextPercent}%
+              </span>
+            </div>
+            <div style="height: 8px; background: var(--bg-secondary); border-radius: 4px; overflow: hidden;">
+              <div style="height: 100%; width: ${contextPercent}%; background: ${contextColor}; transition: width 0.3s;"></div>
+            </div>
+            <div style="margin-top: 8px; font-size: 11px; color: var(--text-muted);">
+              Last sleep: ${lastSleep}
+              ${agent.lastSleepNote ? `<br><em>"${escapeHtml(agent.lastSleepNote)}"</em>` : ''}
+            </div>
+          </div>
+        </div>
+        
         <div class="form-group">
           <label class="form-label">Assigned Tasks (${agentTasks.length})</label>
-          <div id="agent-tasks" style="max-height: 150px; overflow-y: auto;">
+          <div id="agent-tasks" style="max-height: 120px; overflow-y: auto;">
             ${agentTasks.length === 0 
               ? `<p style="color: var(--text-muted); font-size: var(--text-caption);">No active tasks</p>`
               : agentTasks.map(t => `

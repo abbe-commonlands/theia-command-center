@@ -17,6 +17,12 @@ export default defineSchema({
     discordChannel: v.optional(v.string()), // "#dev"
     model: v.optional(v.string()), // "codex"
     lastActiveAt: v.optional(v.number()),
+    // Context tracking
+    contextUsed: v.optional(v.number()),    // tokens used in current session
+    contextCap: v.optional(v.number()),     // max context window for model
+    contextPercent: v.optional(v.number()), // usage percentage (0-100)
+    lastSleepAt: v.optional(v.number()),    // when agent last went to sleep
+    lastSleepNote: v.optional(v.string()),  // what they were working on
   })
     .index("by_session", ["sessionKey"])
     .index("by_status", ["status"]),

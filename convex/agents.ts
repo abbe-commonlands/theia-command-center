@@ -90,6 +90,102 @@ export const updateStatus = mutation({
   },
 });
 
+// Update context usage (call before sleep)
+export const updateContext = mutation({
+  args: {
+    sessionKey: v.string(),
+    contextUsed: v.number(),
+    contextCap: v.number(),
+    sleepNote: v.optional(v.string()),
+  },
+  handler: async (ctx, args) => {
+    const agent = await ctx.db
+      .query("agents")
+      .withIndex("by_session", (q) => q.eq("sessionKey", args.sessionKey))
+      .first();
+
+    if (!agent) throw new Error(`Agent not found: ${args.sessionKey}`);
+
+    const contextPercent = Math.round((args.contextUsed / args.contextCap) * 100);
+
+    await ctx.db.patch(agent._id, {
+      contextUsed: args.contextUsed,
+      contextCap: args.contextCap,
+      contextPercent,
+      lastSleepAt: Date.now(),
+      lastSleepNote: args.sleepNote,
+      status: "idle",
+      lastActiveAt: Date.now(),
+    });
+
+    // Log activity if context is high
+    if (contextPercent >= 80) {
+      await ctx.db.insert("activities", {
+        type: "agent_status_changed",
+        agentId: agent._id,
+        agentName: agent.name,
+        message: `⚠️ ${agent.name} context at ${contextPercent}% (${args.contextUsed.toLocaleString()}/${args.contextCap.toLocaleString()} tokens)`,
+        metadata: { contextUsed: args.contextUsed, contextCap: args.contextCap, contextPercent },
+      });
+    }
+
+    return agent._id;
+  },
+});
+
+// Sleep protocol - agent going to sleep
+export const sleep = mutation({
+  args: {
+    sessionKey: v.string(),
+    contextUsed: v.number(),
+    contextCap: v.number(),
+    workingOn: v.optional(v.string()),
+    nextSteps: v.optional(v.string()),
+  },
+  handler: async (ctx, args) => {
+    const agent = await ctx.db
+      .query("agents")
+      .withIndex("by_session", (q) => q.eq("sessionKey", args.sessionKey))
+      .first();
+
+    if (!agent) throw new Error(`Agent not found: ${args.sessionKey}`);
+
+    const contextPercent = Math.round((args.contextUsed / args.contextCap) * 100);
+    const sleepNote = [
+      args.workingOn ? `Working on: ${args.workingOn}` : null,
+      args.nextSteps ? `Next: ${args.nextSteps}` : null,
+    ].filter(Boolean).join(' | ');
+
+    await ctx.db.patch(agent._id, {
+      contextUsed: args.contextUsed,
+      contextCap: args.contextCap,
+      contextPercent,
+      lastSleepAt: Date.now(),
+      lastSleepNote: sleepNote || undefined,
+      status: "idle",
+      currentTaskId: undefined,
+      lastActiveAt: Date.now(),
+    });
+
+    // Log the sleep
+    await ctx.db.insert("activities", {
+      type: "agent_status_changed",
+      agentId: agent._id,
+      agentName: agent.name,
+      message: `${agent.name} went to sleep (${contextPercent}% context used)${sleepNote ? ` - ${sleepNote}` : ''}`,
+      metadata: { 
+        contextUsed: args.contextUsed, 
+        contextCap: args.contextCap, 
+        contextPercent,
+        workingOn: args.workingOn,
+        nextSteps: args.nextSteps,
+      },
+    });
+
+    return agent._id;
+  },
+});
+
 // Seed initial agents
 export const seed = mutation({
   args: {},

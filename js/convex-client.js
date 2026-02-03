@@ -122,6 +122,14 @@
       return await mutate("agents:updateStatus", { sessionKey, status, currentTaskId });
     },
     
+    async updateContext(sessionKey, contextUsed, contextCap, sleepNote) {
+      return await mutate("agents:updateContext", { sessionKey, contextUsed, contextCap, sleepNote });
+    },
+    
+    async sleep(sessionKey, contextUsed, contextCap, workingOn, nextSteps) {
+      return await mutate("agents:sleep", { sessionKey, contextUsed, contextCap, workingOn, nextSteps });
+    },
+    
     async seed() {
       return await mutate("agents:seed", {});
     },
