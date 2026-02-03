@@ -225,7 +225,7 @@
               ? `<p style="color: var(--text-muted); font-size: var(--text-caption);">No active tasks</p>`
               : agentTasks.map(t => `
                   <div style="padding: 8px; background: var(--bg-primary); border-radius: var(--radius-sm); margin-bottom: 4px; font-size: var(--text-caption);">
-                    <span class="badge ${PRIORITY_COLORS[t.priority] || 'badge-neutral'}" style="font-size: 10px;">P${t.priority}</span>
+                    <span class="badge ${PRIORITY_COLORS[t.priority] || 'badge-neutral'}" style="font-size: 10px;">${t.priority}</span>
                     ${escapeHtml(t.title)}
                   </div>
                 `).join('')
@@ -319,14 +319,20 @@
       task.assigneeIds?.includes(a._id || a.id)
     );
     
+    // Truncate description for card preview
+    const descPreview = task.description 
+      ? (task.description.length > 80 ? task.description.slice(0, 80) + '...' : task.description)
+      : '';
+    
     const card = createEl("div", "task-card");
     card.dataset.taskId = taskId;
     card.draggable = true;
     
     card.innerHTML = `
       <div class="task-title">${escapeHtml(task.title)}</div>
+      ${descPreview ? `<div class="task-desc" style="font-size: 11px; color: var(--text-muted); margin: 4px 0; line-height: 1.3;">${escapeHtml(descPreview)}</div>` : ''}
       <div class="task-meta">
-        <span class="badge ${PRIORITY_COLORS[task.priority] || "badge-cyan"}">P${task.priority || 5}</span>
+        <span class="badge ${PRIORITY_COLORS[task.priority] || "badge-cyan"}">${task.priority || 5}</span>
         <span>${assignees.length > 0 ? assignees.map(a => a.emoji).join(' ') : "—"}</span>
       </div>
     `;
@@ -415,7 +421,7 @@
           <label class="form-label">Status</label>
           <div style="display: flex; align-items: center; gap: var(--space-sm);">
             <span class="badge badge-cyan">${STATUS_LABELS[task.status]}</span>
-            <span class="badge ${PRIORITY_COLORS[task.priority] || 'badge-cyan'}">Priority ${task.priority || 5}</span>
+            <span class="badge ${PRIORITY_COLORS[task.priority] || 'badge-cyan'}">${task.priority || 5}</span>
           </div>
         </div>
         
@@ -684,6 +690,20 @@
     const newTaskBtn = $("#new-task-btn");
     if (newTaskBtn) {
       newTaskBtn.addEventListener("click", () => openTaskModal());
+    }
+    
+    // Modal close button (X)
+    const modalCloseBtn = $("#modal-close");
+    if (modalCloseBtn) {
+      modalCloseBtn.addEventListener("click", closeTaskModal);
+    }
+    
+    // Click outside modal to close
+    const modalBackdrop = $("#task-modal");
+    if (modalBackdrop) {
+      modalBackdrop.addEventListener("click", (e) => {
+        if (e.target === modalBackdrop) closeTaskModal();
+      });
     }
     
     document.addEventListener("keydown", (e) => {
