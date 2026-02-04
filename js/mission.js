@@ -169,9 +169,11 @@
           <span class="status-dot ${agent.status || "idle"}"></span>
           <span>${agent.status || "idle"}</span>
         </div>
+        <div class="agent-last-seen" style="font-size: 10px; color: var(--text-muted); margin-top: 2px;">
+          Last seen: ${lastActive}
+        </div>
         <div style="margin-top: var(--space-xs); font-size: 10px; color: var(--text-muted);">
           <span style="color: var(--accent-cyan);">${agent.model || "sonnet"}</span>
-          · last: ${lastActive}
         </div>
         ${currentTaskHtml}
         ${contextBar}
