@@ -164,6 +164,65 @@ export const assign = mutation({
   },
 });
 
+// Generic update (for CLI convenience)
+export const update = mutation({
+  args: {
+    id: v.id("tasks"),
+    status: v.optional(v.union(
+      v.literal("inbox"),
+      v.literal("assigned"),
+      v.literal("in_progress"),
+      v.literal("review"),
+      v.literal("done")
+    )),
+    priority: v.optional(v.number()),
+    title: v.optional(v.string()),
+    description: v.optional(v.string()),
+    agentSession: v.optional(v.string()),
+  },
+  handler: async (ctx, args) => {
+    const task = await ctx.db.get(args.id);
+    if (!task) throw new Error("Task not found");
+
+    const updates: any = {};
+    if (args.status !== undefined) updates.status = args.status;
+    if (args.priority !== undefined) updates.priority = args.priority;
+    if (args.title !== undefined) updates.title = args.title;
+    if (args.description !== undefined) updates.description = args.description;
+
+    await ctx.db.patch(args.id, updates);
+
+    // Get agent info for activity
+    let agentName = "unknown";
+    let agentId = undefined;
+    if (args.agentSession) {
+      const agent = await ctx.db
+        .query("agents")
+        .withIndex("by_session", (q) => q.eq("sessionKey", args.agentSession!))
+        .first();
+      if (agent) {
+        agentName = agent.name;
+        agentId = agent._id;
+      }
+    }
+
+    // Log activity if status changed
+    if (args.status && args.status !== task.status) {
+      await ctx.db.insert("activities", {
+        type: "task_moved",
+        agentId,
+        agentName,
+        taskId: args.id,
+        taskTitle: task.title,
+        message: `${agentName} moved "${task.title}" to ${args.status}`,
+        metadata: { from: task.status, to: args.status },
+      });
+    }
+
+    return args.id;
+  },
+});
+
 // Update priority (Abbe only)
 export const updatePriority = mutation({
   args: {
