@@ -118,4 +118,103 @@ export default defineSchema({
   })
     .index("by_agent", ["mentionedAgentId"])
     .index("by_unread", ["mentionedAgentId", "delivered"]),
+
+  // =========================================================================
+  // QMS TRAINING MODULE
+  // =========================================================================
+
+  // Employees - staff members who need training
+  employees: defineTable({
+    employeeId: v.string(),          // "EMP-001"
+    name: v.string(),                // "John Smith"
+    title: v.string(),               // "Quality Inspector"
+    department: v.string(),          // "Quality"
+    hireDate: v.number(),            // timestamp
+    isActive: v.boolean(),
+    email: v.optional(v.string()),
+    createdBy: v.string(),
+  })
+    .index("by_employeeId", ["employeeId"])
+    .index("by_department", ["department"])
+    .index("by_active", ["isActive"]),
+
+  // Training courses - what people need to learn
+  trainingCourses: defineTable({
+    courseId: v.string(),            // "EQ-TL"
+    courseName: v.string(),          // "Trioptics Lens Testing"
+    category: v.union(
+      v.literal("equipment"),
+      v.literal("qms"),
+      v.literal("safety")
+    ),
+    description: v.optional(v.string()),
+    requiredFor: v.optional(v.array(v.string())), // departments/roles
+    frequency: v.optional(v.string()),  // "Annual", "One-time", etc.
+    isActive: v.boolean(),
+    createdBy: v.string(),
+  })
+    .index("by_courseId", ["courseId"])
+    .index("by_category", ["category"]),
+
+  // Training records - who completed what
+  trainingRecords: defineTable({
+    employeeId: v.id("employees"),
+    courseId: v.string(),            // matches trainingCourses.courseId
+    completedDate: v.number(),       // timestamp
+    expirationDate: v.optional(v.number()),
+    trainer: v.optional(v.string()),
+    score: v.optional(v.number()),   // 0-100
+    status: v.union(
+      v.literal("completed"),
+      v.literal("in_progress"),
+      v.literal("expired"),
+      v.literal("scheduled")
+    ),
+    notes: v.optional(v.string()),
+    createdBy: v.string(),
+  })
+    .index("by_employee", ["employeeId"])
+    .index("by_course", ["courseId"])
+    .index("by_status", ["status"]),
+
+  // =========================================================================
+  // QMS RMA MODULE
+  // =========================================================================
+
+  // RMA records - return merchandise authorizations
+  rmaRecords: defineTable({
+    rmaNumber: v.string(),           // "RMA-2024-001"
+    rmaDate: v.number(),             // timestamp
+    customerName: v.string(),
+    contactName: v.optional(v.string()),
+    contactEmail: v.optional(v.string()),
+    contactPhone: v.optional(v.string()),
+    salesOrderNumber: v.optional(v.string()),
+    shipmentNumber: v.optional(v.string()),
+    partNumbers: v.array(v.string()),
+    quantities: v.array(v.number()),
+    reasonForReturn: v.string(),
+    dateReturnReceived: v.optional(v.number()),
+    actionTaken: v.optional(v.string()),
+    status: v.string(),              // Open, Closed, Cancelled, Voided, In-Process, Tentatively Closed
+    qualityRelated: v.boolean(),
+    partNumberMixup: v.boolean(),
+    notes: v.optional(v.string()),
+    createdBy: v.string(),
+    updatedAt: v.optional(v.number()),
+  })
+    .index("by_rmaNumber", ["rmaNumber"])
+    .index("by_status", ["status"])
+    .index("by_customer", ["customerName"])
+    .index("by_date", ["rmaDate"]),
+
+  // Quality KPIs - yearly metrics
+  qualityKPIs: defineTable({
+    year: v.number(),
+    totalShipped: v.number(),
+    qualityReturns: v.number(),
+    qualityReturnRate: v.number(),   // percentage
+    notes: v.optional(v.string()),
+  })
+    .index("by_year", ["year"]),
 });
