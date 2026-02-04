@@ -5,9 +5,11 @@
 **CLI and frontend MUST use the same Convex deployment.**
 
 ```
-Production: quick-whale-641
-URL: https://quick-whale-641.convex.cloud
+Deployment: aromatic-trout-929 (dev)
+URL: https://aromatic-trout-929.convex.cloud
 ```
+
+**NOTE:** This project uses the DEV deployment, not prod.
 
 ## Why This Matters
 
@@ -34,8 +36,8 @@ cd ~/clawd/projects/abbe-command-center
 ## Required .env.local Contents
 
 ```
-CONVEX_DEPLOYMENT=prod:quick-whale-641
-CONVEX_URL=https://quick-whale-641.convex.cloud
+CONVEX_DEPLOYMENT=dev:aromatic-trout-929
+CONVEX_URL=https://aromatic-trout-929.convex.cloud
 ```
 
 ## What Creates This Problem
@@ -70,8 +72,13 @@ If you need a separate dev environment:
 
 | File | Must Contain |
 |------|--------------|
-| `.env.local` | `CONVEX_DEPLOYMENT=prod:quick-whale-641` |
-| `.env.local` | `CONVEX_URL=https://quick-whale-641.convex.cloud` |
-| `js/convex-client.js` | `const CONVEX_URL = "https://quick-whale-641.convex.cloud"` |
+| `.env.local` | `CONVEX_DEPLOYMENT=dev:aromatic-trout-929` |
+| `.env.local` | `CONVEX_URL=https://aromatic-trout-929.convex.cloud` |
+| `js/convex-client.js` | `const CONVEX_URL = "https://aromatic-trout-929.convex.cloud"` |
 
 If any of these differ, the dashboard breaks.
+
+## IMPORTANT: Use `npx convex dev` NOT `deploy`
+
+- `npx convex dev --once` → pushes to aromatic-trout-929 (correct)
+- `npx convex deploy` → pushes to quick-whale-641 (WRONG - don't use)

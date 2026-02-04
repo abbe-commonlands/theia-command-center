@@ -20,11 +20,12 @@ cat > "$ENV_FILE" << 'EOF'
 #
 # This has caused production outages 3+ times (2026-02-04).
 #
-# If you need a dev environment, use a SEPARATE project directory.
+# NOTE: This project uses DEV deployment (aromatic-trout-929).
+# The PROD deployment (quick-whale-641) is NOT used by the frontend.
 # ═══════════════════════════════════════════════════════════════════════════
 
-CONVEX_DEPLOYMENT=prod:quick-whale-641
-CONVEX_URL=https://quick-whale-641.convex.cloud
+CONVEX_DEPLOYMENT=dev:aromatic-trout-929
+CONVEX_URL=https://aromatic-trout-929.convex.cloud
 EOF
 
 echo "✅ Fixed .env.local → prod:quick-whale-641"

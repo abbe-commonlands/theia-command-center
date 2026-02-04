@@ -105,17 +105,19 @@ Use conventional commits:
 
 ## Deployment Configuration
 
-**Production Convex:** `quick-whale-641`
+**Convex Deployment:** `aromatic-trout-929` (dev)
 
 The `.env.local` file MUST contain:
 ```
-CONVEX_DEPLOYMENT=prod:quick-whale-641
-CONVEX_URL=https://quick-whale-641.convex.cloud
+CONVEX_DEPLOYMENT=dev:aromatic-trout-929
+CONVEX_URL=https://aromatic-trout-929.convex.cloud
 ```
 
 **DO NOT change this.** The frontend (`js/convex-client.js`) points to this deployment.
 If CLI and frontend point to different deployments, data won't sync.
 
+**IMPORTANT:** Use `npx convex dev --once` to push changes, NOT `npx convex deploy`.
+
 ### Incident 2026-02-04 (Deployment Mismatch)
-`.env.local` was pointing to `aromatic-trout-929` (dev) while frontend used `quick-whale-641`.
-Result: Agents reported to dev DB, dashboard showed prod DB. No data appeared to sync.
+`.env.local` was changed to `quick-whale-641` (prod) while frontend used `aromatic-trout-929` (dev).
+Result: Agents reported to prod DB, dashboard showed dev DB. No data appeared to sync.

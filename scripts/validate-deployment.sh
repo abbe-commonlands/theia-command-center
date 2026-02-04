@@ -6,8 +6,8 @@
 
 set -e
 
-EXPECTED_DEPLOYMENT="prod:quick-whale-641"
-EXPECTED_URL="https://quick-whale-641.convex.cloud"
+EXPECTED_DEPLOYMENT="dev:aromatic-trout-929"
+EXPECTED_URL="https://aromatic-trout-929.convex.cloud"
 ENV_FILE=".env.local"
 CLIENT_FILE="js/convex-client.js"
 
