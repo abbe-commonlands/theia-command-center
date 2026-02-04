@@ -42,6 +42,27 @@
           </button>
           <button 
             class="nav-tab" 
+            data-tab="documents" 
+            role="tab" 
+            aria-selected="false"
+            aria-controls="documents-screen"
+          >
+            <span>📄</span>
+            <span>Documents</span>
+          </button>
+          <button 
+            class="nav-tab" 
+            data-tab="log" 
+            role="tab" 
+            aria-selected="false"
+            aria-controls="log-screen"
+          >
+            <span>📰</span>
+            <span>Activity Feed</span>
+            <span class="nav-badge" id="log-count">0</span>
+          </button>
+          <button 
+            class="nav-tab" 
             data-tab="skills" 
             role="tab" 
             aria-selected="false"
@@ -59,17 +80,6 @@
           >
             <span>🌐</span>
             <span>Knowledge Map</span>
-          </button>
-          <button 
-            class="nav-tab" 
-            data-tab="log" 
-            role="tab" 
-            aria-selected="false"
-            aria-controls="log-screen"
-          >
-            <span>📋</span>
-            <span>Activity Log</span>
-            <span class="nav-badge" id="log-count">0</span>
           </button>
         </nav>
       </div>
@@ -114,6 +124,59 @@
             <div id="kanban-board" class="kanban-board">
               <!-- Populated by JS -->
             </div>
+          </div>
+        </div>
+      </section>
+
+      <!-- Documents Screen -->
+      <section 
+        id="documents-screen" 
+        class="screen" 
+        data-screen="documents"
+        role="tabpanel"
+        aria-labelledby="documents-tab"
+      >
+        <div class="card" style="margin-bottom: var(--space-md);">
+          <div class="card-header">
+            <div>
+              <h2 class="card-title">📄 Deliverables & Documents</h2>
+              <p class="card-subtitle">Shared repository for team knowledge</p>
+            </div>
+            <div class="flex gap-sm">
+              <button class="btn btn-secondary" onclick="Documents.load()">
+                <span>🔄</span> Refresh
+              </button>
+              <button class="btn btn-primary" onclick="Documents.openCreateModal()">
+                <span>+</span> New Document
+              </button>
+            </div>
+          </div>
+        </div>
+
+        <!-- Filter Bar -->
+        <div class="filter-bar" style="margin-bottom: var(--space-md);">
+          <button class="filter-pill doc-filter-pill active" data-type="" onclick="Documents.filterByType(null)">
+            All
+          </button>
+          <button class="filter-pill doc-filter-pill" data-type="deliverable" onclick="Documents.filterByType('deliverable')">
+            📦 Deliverables
+          </button>
+          <button class="filter-pill doc-filter-pill" data-type="research" onclick="Documents.filterByType('research')">
+            🔬 Research
+          </button>
+          <button class="filter-pill doc-filter-pill" data-type="protocol" onclick="Documents.filterByType('protocol')">
+            📋 Protocols
+          </button>
+          <button class="filter-pill doc-filter-pill" data-type="note" onclick="Documents.filterByType('note')">
+            📝 Notes
+          </button>
+        </div>
+
+        <!-- Documents Grid -->
+        <div class="card">
+          <div id="documents-grid" class="documents-grid">
+            <!-- Populated by JS -->
+            <div class="skills-empty" style="grid-column: 1 / -1;">Loading documents...</div>
           </div>
         </div>
       </section>
@@ -273,7 +336,7 @@
     </main>
   </div>
 
-  <!-- Task Modal -->
+  <!-- Task Modal (for new/edit) -->
   <div id="task-modal" class="modal-backdrop">
     <div class="modal">
       <div class="modal-header">
@@ -310,7 +373,6 @@
               <label class="form-label" for="task-assignee">Assignee</label>
               <select id="task-assignee" class="input select">
                 <option value="">Unassigned</option>
-                <!-- Options populated by JS -->
               </select>
             </div>
           </div>
@@ -333,12 +395,65 @@
     </div>
   </div>
 
+  <!-- Task Detail Slide Panel -->
+  <div id="task-detail-panel" class="slide-panel-backdrop">
+    <div class="slide-panel">
+      <button class="slide-panel-close" id="panel-close">&times;</button>
+      
+      <div class="slide-panel-header">
+        <h2 id="panel-task-title">Task Title</h2>
+        <div class="slide-panel-meta">
+          <span class="badge" id="panel-task-status">Status</span>
+          <span class="badge" id="panel-task-priority">P5</span>
+          <span id="panel-task-assignees" style="color: var(--text-muted);"></span>
+        </div>
+      </div>
+      
+      <div class="slide-panel-body">
+        <!-- Description -->
+        <div class="slide-panel-section">
+          <h3 class="slide-panel-section-title">Description</h3>
+          <div id="panel-task-description" style="color: var(--text-secondary); line-height: 1.7; white-space: pre-wrap;">
+            No description provided.
+          </div>
+        </div>
+        
+        <!-- Linked Documents -->
+        <div class="slide-panel-section" id="panel-documents-section">
+          <h3 class="slide-panel-section-title">📦 Deliverables</h3>
+          <div id="panel-task-documents">
+            <p style="color: var(--text-muted); font-size: var(--text-caption);">No documents linked</p>
+          </div>
+        </div>
+        
+        <!-- Activity Timeline -->
+        <div class="slide-panel-section">
+          <h3 class="slide-panel-section-title">📋 Activity</h3>
+          <div id="panel-task-activity" class="activity-feed-editorial" style="max-height: 200px; overflow-y: auto;">
+            <p style="color: var(--text-muted); font-size: var(--text-caption);">No activity yet</p>
+          </div>
+        </div>
+        
+        <!-- Comments -->
+        <div class="slide-panel-section">
+          <h3 class="slide-panel-section-title">💬 Discussion</h3>
+          <div id="panel-task-comments" class="comments-thread">
+            <!-- Populated by JS -->
+          </div>
+          <div id="panel-comment-form-container">
+            <!-- Comment form injected here -->
+          </div>
+        </div>
+      </div>
+    </div>
+  </div>
+
   <!-- Toast Container -->
   <div id="toast-container" class="toast-container"></div>
 
   <!-- Version Footer -->
-  <footer class="version-footer" style="position: fixed; bottom: 8px; right: 12px; font-size: 11px; color: #666; z-index: 10;">
-    Build: 2026-02-03T21:22:00Z | v0.2.3
+  <footer class="version-footer" style="position: fixed; bottom: 8px; right: 12px; font-size: 11px; color: #666; z-index: 10; font-family: var(--font-serif);">
+    📰 The Daily Dispatch | v0.3.0 | Build: 2026-02-03
   </footer>
 
   <!-- Convex Client (CDN) -->
@@ -348,6 +463,9 @@
   <script src="js/db.js"></script>
   <script src="js/convex-client.js"></script>
   <script src="js/components.js"></script>
+  <script src="js/notifications.js"></script>
+  <script src="js/comments.js"></script>
+  <script src="js/documents.js"></script>
   <script src="js/mission.js"></script>
   <script src="js/app.js"></script>
   

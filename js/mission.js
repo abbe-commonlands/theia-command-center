@@ -400,111 +400,113 @@
     }
   }
 
-  // ============ Task Detail Modal ============
+  // ============ Task Detail Slide Panel ============
 
-  function openTaskDetail(task) {
-    editingTaskId = task._id || task.id;
+  let currentDetailTask = null;
+
+  async function openTaskDetail(task) {
+    currentDetailTask = task;
+    const taskId = task._id || task.id;
     const assignees = cachedAgents.filter(a => 
       task.assigneeIds?.includes(a._id || a.id)
     );
     
-    const modal = $("#task-modal");
-    const title = $("#modal-title");
-    const form = $("#task-form");
-    const footer = $(".modal-footer");
+    const panel = $("#task-detail-panel");
     
-    title.textContent = task.title;
+    // Set basic info
+    $("#panel-task-title").textContent = task.title;
     
-    form.innerHTML = `
-      <div style="display: flex; flex-direction: column; gap: var(--space-md);">
-        <div class="form-group">
-          <label class="form-label">Status</label>
-          <div style="display: flex; align-items: center; gap: var(--space-sm);">
-            <span class="badge badge-cyan">${STATUS_LABELS[task.status]}</span>
-            <span class="badge ${PRIORITY_COLORS[task.priority] || 'badge-cyan'}">${task.priority || 5}</span>
+    const statusBadge = $("#panel-task-status");
+    statusBadge.textContent = STATUS_LABELS[task.status];
+    statusBadge.className = `badge badge-cyan`;
+    
+    const priorityBadge = $("#panel-task-priority");
+    priorityBadge.textContent = `P${task.priority || 5}`;
+    priorityBadge.className = `badge ${PRIORITY_COLORS[task.priority] || 'badge-cyan'}`;
+    
+    $("#panel-task-assignees").innerHTML = assignees.length > 0 
+      ? assignees.map(a => `${a.emoji} ${a.name}`).join(', ')
+      : '<span style="color: var(--text-muted);">Unassigned</span>';
+    
+    // Description
+    $("#panel-task-description").innerHTML = task.description 
+      ? escapeHtml(task.description)
+      : '<span style="color: var(--text-muted);">No description provided.</span>';
+    
+    // Load linked documents
+    const docsContainer = $("#panel-task-documents");
+    if (window.Documents) {
+      const docs = window.Documents.getByTask(taskId);
+      if (docs.length > 0) {
+        docsContainer.innerHTML = docs.map(doc => `
+          <div style="padding: var(--space-sm); background: var(--bg-primary); border-radius: var(--radius-sm); margin-bottom: var(--space-xs); cursor: pointer;" 
+               onclick="Documents.openViewer(Documents.getAll().find(d => d.id === '${doc.id}'))">
+            <span>${doc.type === 'deliverable' ? '📦' : '📄'}</span>
+            <span style="color: var(--text-primary);">${escapeHtml(doc.title)}</span>
           </div>
-        </div>
-        
-        <div class="form-group">
-          <label class="form-label">Assigned To</label>
-          <div style="color: var(--text-primary);">
-            ${assignees.length > 0 
-              ? assignees.map(a => `${a.emoji} ${a.name}`).join(', ')
-              : 'Unassigned'
-            }
-          </div>
-        </div>
-        
-        <div class="form-group">
-          <label class="form-label">Description</label>
-          <div style="color: var(--text-secondary); white-space: pre-wrap; background: var(--bg-primary); padding: var(--space-sm); border-radius: var(--radius-sm); max-height: 120px; overflow-y: auto;">
-            ${escapeHtml(task.description) || 'No description'}
-          </div>
-        </div>
-        
-        ${task.deliverables ? `
-          <div class="form-group">
-            <label class="form-label" style="color: var(--accent-green);">📦 Deliverables</label>
-            <div style="color: var(--text-secondary); white-space: pre-wrap; background: var(--bg-primary); padding: var(--space-sm); border-radius: var(--radius-sm);">
-              ${escapeHtml(task.deliverables)}
-            </div>
-          </div>
-        ` : ''}
-        
-        ${task.verifiedAt ? `
-          <div class="form-group">
-            <label class="form-label" style="color: var(--accent-green);">✓ Verified</label>
-            <div style="color: var(--text-muted); font-size: var(--text-caption);">
-              ${new Date(task.verifiedAt).toLocaleString()}
-            </div>
-          </div>
-        ` : ''}
-        
-        <div class="form-group">
-          <label class="form-label">Created By</label>
-          <div style="color: var(--text-muted); font-size: var(--text-caption);">
-            ${task.createdByName || 'Unknown'}
+        `).join('');
+      } else {
+        docsContainer.innerHTML = '<p style="color: var(--text-muted); font-size: var(--text-caption);">No documents linked</p>';
+      }
+    }
+    
+    // Load task activity (filtered by taskId)
+    const activityContainer = $("#panel-task-activity");
+    // For now, show placeholder - in production, filter from ActivityLog
+    activityContainer.innerHTML = `
+      <div class="activity-entry" style="border: none; padding: var(--space-xs) 0;">
+        <div class="activity-entry-icon" style="width: 28px; height: 28px; font-size: 0.875rem;">📝</div>
+        <div class="activity-entry-body">
+          <div class="activity-entry-headline" style="font-size: var(--text-caption);">
+            Task created by <strong>${escapeHtml(task.createdByName || 'Unknown')}</strong>
           </div>
         </div>
       </div>
+      ${task.verifiedAt ? `
+        <div class="activity-entry" style="border: none; padding: var(--space-xs) 0;">
+          <div class="activity-entry-icon" style="width: 28px; height: 28px; font-size: 0.875rem;">✅</div>
+          <div class="activity-entry-body">
+            <div class="activity-entry-headline" style="font-size: var(--text-caption);">
+              Verified on ${new Date(task.verifiedAt).toLocaleDateString()}
+            </div>
+          </div>
+        </div>
+      ` : ''}
     `;
     
-    footer.innerHTML = `
-      <button type="button" class="btn btn-secondary" id="modal-cancel">Close</button>
-      <button type="button" class="btn btn-secondary" id="edit-task-btn">Edit</button>
-      ${task.status !== 'done' 
-        ? `<button type="button" class="btn btn-primary" id="progress-task-btn">
-            ${getNextAction(task.status)}
-          </button>`
-        : ''
-      }
-    `;
+    // Load comments
+    const commentsContainer = $("#panel-task-comments");
+    const formContainer = $("#panel-comment-form-container");
     
-    $("#modal-cancel").addEventListener("click", closeTaskModal);
-    $("#edit-task-btn").addEventListener("click", () => {
-      closeTaskModal();
-      openTaskModal(task);
-    });
-    
-    const progressBtn = $("#progress-task-btn");
-    if (progressBtn) {
-      progressBtn.addEventListener("click", async () => {
-        const nextStatus = getNextStatus(task.status);
-        if (nextStatus) {
-          try {
-            const db = getDB();
-            await db.tasks.update(editingTaskId, { status: nextStatus });
-            showToast(`Task moved to ${STATUS_LABELS[nextStatus]}`, "success");
-            closeTaskModal();
-            if (!useConvex) await loadTasks();
-          } catch (err) {
-            showToast("Failed to update task", "error");
-          }
-        }
+    if (window.Comments) {
+      // Load comments for this task
+      await window.Comments.loadForTask(taskId);
+      window.Comments.render(taskId, commentsContainer);
+      
+      // Add comment form
+      formContainer.innerHTML = '';
+      const form = window.Comments.createForm(taskId, async () => {
+        // Refresh comments after adding
+        await window.Comments.loadForTask(taskId);
+        window.Comments.render(taskId, commentsContainer);
       });
+      formContainer.appendChild(form);
     }
     
-    modal.classList.add("open");
+    // Open the panel
+    panel.classList.add("open");
+    
+    // Bind close events
+    $("#panel-close").onclick = closeTaskDetailPanel;
+    panel.onclick = (e) => {
+      if (e.target === panel) closeTaskDetailPanel();
+    };
+  }
+
+  function closeTaskDetailPanel() {
+    const panel = $("#task-detail-panel");
+    panel.classList.remove("open");
+    currentDetailTask = null;
   }
 
   function getNextStatus(currentStatus) {

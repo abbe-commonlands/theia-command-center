@@ -1,46 +1,106 @@
 /**
- * Activity Log - Agent-to-agent interaction viewer
- * Now with Convex real-time support
+ * Activity Log - Newspaper Editorial Style
+ * Real-time feed of agent activity
  */
 
 const AGENT_ICONS = {
   'Abbe': '🧠',
   'Seidel': '💼',
   'Iris': '🎨',
-  'Theia': '🔬',
-  'Photon': '⚙️',
+  'Theia': '🔮',
+  'Photon': '📸',
   'Zernike': '💻',
-  'Ernst': '✓',
-  'Kanban': '📦',
-  'Deming': '✅',
+  'Ernst': '✅',
+  'Kanban': '📋',
+  'Deming': '📊',
+  'Max': '👤',
   'unknown': '❓'
 };
 
-const EVENT_LABELS = {
-  task_created: { label: 'Created Task', color: '#10B981' },
-  task_assigned: { label: 'Assigned', color: '#6366F1' },
-  task_moved: { label: 'Moved Task', color: '#6366F1' },
-  task_completed: { label: 'Completed', color: '#10B981' },
-  task_verified: { label: 'Verified ✓', color: '#10B981' },
-  task_rejected: { label: 'Returned ✗', color: '#EF4444' },
-  message_sent: { label: 'Comment', color: '#8B5CF6' },
-  document_created: { label: 'Document', color: '#8B5CF6' },
-  agent_status_changed: { label: 'Status', color: '#6B7280' },
-  mention: { label: '@Mention', color: '#F59E0B' },
-  priority_requested: { label: 'Priority Request', color: '#F59E0B' }
+const EVENT_TYPES = {
+  task_created: { label: 'New Task', icon: '📝', verb: 'created a new task' },
+  task_assigned: { label: 'Assignment', icon: '🎯', verb: 'was assigned to' },
+  task_moved: { label: 'Progress', icon: '➡️', verb: 'moved task to' },
+  task_completed: { label: 'Completed', icon: '✅', verb: 'completed' },
+  task_verified: { label: 'Verified', icon: '✓', verb: 'verified completion of' },
+  task_rejected: { label: 'Returned', icon: '↩️', verb: 'returned task for revision:' },
+  message_sent: { label: 'Discussion', icon: '💬', verb: 'commented on' },
+  document_created: { label: 'Document', icon: '📄', verb: 'published' },
+  agent_status_changed: { label: 'Status', icon: '🔄', verb: 'status changed to' },
+  mention: { label: 'Mention', icon: '📣', verb: 'mentioned' },
+  priority_requested: { label: 'Priority', icon: '⚡', verb: 'requested priority change for' },
+  heartbeat: { label: 'Heartbeat', icon: '💓', verb: 'checked in' },
 };
 
 let activityData = [];
 let useConvex = false;
 
+function escapeHtml(text) {
+  const div = document.createElement('div');
+  div.textContent = text || '';
+  return div.innerHTML;
+}
+
+function formatTime(timestamp) {
+  const date = new Date(timestamp);
+  return date.toLocaleTimeString('en-US', { 
+    hour: 'numeric', 
+    minute: '2-digit',
+    hour12: true 
+  });
+}
+
+function formatDateHeader(timestamp) {
+  const date = new Date(timestamp);
+  const now = new Date();
+  const diffDays = Math.floor((now - date) / 86400000);
+  
+  if (diffDays === 0) return 'Today';
+  if (diffDays === 1) return 'Yesterday';
+  
+  return date.toLocaleDateString('en-US', { 
+    weekday: 'long',
+    month: 'long', 
+    day: 'numeric',
+    year: date.getFullYear() !== now.getFullYear() ? 'numeric' : undefined
+  });
+}
+
+function groupByDate(activities) {
+  const groups = {};
+  
+  activities.forEach(activity => {
+    const timestamp = activity._creationTime || activity.created_at * 1000 || Date.now();
+    const dateKey = new Date(timestamp).toDateString();
+    
+    if (!groups[dateKey]) {
+      groups[dateKey] = {
+        date: timestamp,
+        activities: []
+      };
+    }
+    groups[dateKey].activities.push(activity);
+  });
+  
+  // Sort groups by date descending, then activities within each group
+  return Object.values(groups)
+    .sort((a, b) => b.date - a.date)
+    .map(group => ({
+      ...group,
+      activities: group.activities.sort((a, b) => {
+        const timeA = a._creationTime || a.created_at * 1000 || 0;
+        const timeB = b._creationTime || b.created_at * 1000 || 0;
+        return timeB - timeA;
+      })
+    }));
+}
+
 async function loadActivityLog() {
   try {
-    // Try Convex first (must be both available AND initialized)
     if (window.Convex && window.Convex.isReady && window.Convex.isReady()) {
       useConvex = true;
       activityData = await window.Convex.activities.list(100);
     } else {
-      // Fallback to localStorage
       const stored = localStorage.getItem('activities');
       if (stored) {
         activityData = JSON.parse(stored);
@@ -49,7 +109,6 @@ async function loadActivityLog() {
     renderActivityLog();
   } catch (err) {
     console.error('Failed to load activity log:', err);
-    // Fallback to localStorage
     const stored = localStorage.getItem('activities');
     if (stored) {
       activityData = JSON.parse(stored);
@@ -61,13 +120,11 @@ async function loadActivityLog() {
 function setupRealtimeActivities() {
   if (!window.Convex) return;
   
-  // Subscribe to real-time activity updates
   window.Convex.activities.onChange((activities) => {
     console.log("🔄 Activities updated (real-time):", activities.length);
     activityData = activities;
     renderActivityLog();
     
-    // Flash the log badge
     const badge = document.getElementById('log-count');
     if (badge) {
       badge.classList.add('pulse');
@@ -75,7 +132,6 @@ function setupRealtimeActivities() {
     }
   });
   
-  // Also listen for custom events
   window.addEventListener("convex:activities", (e) => {
     activityData = e.detail || [];
     renderActivityLog();
@@ -98,13 +154,6 @@ function renderActivityLog() {
     filtered = filtered.filter(a => a.type === filterType);
   }
   
-  // Sort by timestamp descending (Convex uses _creationTime)
-  filtered.sort((a, b) => {
-    const timeA = a._creationTime || a.created_at || 0;
-    const timeB = b._creationTime || b.created_at || 0;
-    return timeB - timeA;
-  });
-  
   // Update badge
   const badge = document.getElementById('log-count');
   if (badge) {
@@ -112,98 +161,131 @@ function renderActivityLog() {
   }
   
   if (filtered.length === 0) {
-    container.innerHTML = `<div class="log-empty">No activity logged yet. Events will appear here when agents interact.</div>`;
+    container.innerHTML = `
+      <div class="log-empty">
+        <p style="font-family: var(--font-serif); font-size: 1.1rem; color: var(--headline-warm);">
+          No dispatches yet
+        </p>
+        <p style="font-size: var(--text-caption); margin-top: var(--space-sm);">
+          Activity will appear here as agents work
+        </p>
+      </div>
+    `;
     return;
   }
   
-  container.innerHTML = filtered.map(activity => {
-    const eventInfo = EVENT_LABELS[activity.type] || { label: activity.type, color: '#6B7280' };
-    const agentName = activity.agentName || activity.agent_id || 'unknown';
-    const icon = AGENT_ICONS[agentName] || AGENT_ICONS.unknown;
-    
-    // Handle both Convex timestamps and legacy timestamps
-    let time = 'Unknown';
-    if (activity._creationTime) {
-      time = formatTime(activity._creationTime);
-    } else if (activity.created_at) {
-      time = formatTime(activity.created_at * 1000);
-    }
-    
-    // Parse metadata
-    let metadata = activity.metadata;
-    if (typeof metadata === 'string') {
-      try { metadata = JSON.parse(metadata); } catch (e) { metadata = null; }
-    }
-    
-    let details = '';
-    if (metadata) {
-      if (metadata.from && metadata.to) {
-        details = `<span class="log-detail">${metadata.from} → ${metadata.to}</span>`;
-      }
-      if (metadata.feedback) {
-        details += `<span class="log-detail log-feedback">"${metadata.feedback}"</span>`;
-      }
-      if (metadata.deliverables) {
-        const truncated = metadata.deliverables.length > 100 
-          ? metadata.deliverables.slice(0, 100) + '...' 
-          : metadata.deliverables;
-        details += `<span class="log-detail">📦 ${truncated}</span>`;
-      }
-    }
-    
-    return `
-      <div class="log-entry">
-        <div class="log-icon" title="${agentName}">${icon}</div>
-        <div class="log-content">
-          <div class="log-header">
-            <span class="log-agent">${agentName}</span>
-            <span class="log-type" style="background: ${eventInfo.color}20; color: ${eventInfo.color};">${eventInfo.label}</span>
-            <span class="log-time">${time}</span>
-          </div>
-          <div class="log-message">${escapeHtml(activity.message)}</div>
-          ${details ? `<div class="log-details">${details}</div>` : ''}
+  const grouped = groupByDate(filtered);
+  
+  container.innerHTML = `
+    <div class="activity-feed-editorial">
+      ${useConvex ? `
+        <div style="display: flex; align-items: center; justify-content: space-between; margin-bottom: var(--space-md);">
+          <span class="live-indicator">LIVE</span>
+          <span style="font-size: var(--text-caption); color: var(--text-muted);">
+            ${filtered.length} dispatches
+          </span>
         </div>
-      </div>
-    `;
-  }).join('');
-}
-
-function escapeHtml(text) {
-  const div = document.createElement('div');
-  div.textContent = text || '';
-  return div.innerHTML;
-}
-
-function formatTime(timestamp) {
-  const date = new Date(timestamp);
-  const now = new Date();
-  const diff = now - date;
-  
-  if (diff < 60000) return 'Just now';
-  if (diff < 3600000) return `${Math.floor(diff / 60000)}m ago`;
-  if (diff < 86400000) return `${Math.floor(diff / 3600000)}h ago`;
-  
-  return date.toLocaleDateString() + ' ' + date.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' });
+      ` : ''}
+      
+      ${grouped.map((group, groupIndex) => `
+        <div class="activity-date-group">
+          <div class="activity-date-header">${formatDateHeader(group.date)}</div>
+          
+          ${group.activities.map((activity, actIndex) => {
+            const eventInfo = EVENT_TYPES[activity.type] || { 
+              label: activity.type, 
+              icon: '📌', 
+              verb: 'performed action' 
+            };
+            const agentName = activity.agentName || activity.agent_id || 'unknown';
+            const agentIcon = AGENT_ICONS[agentName] || AGENT_ICONS.unknown;
+            
+            const timestamp = activity._creationTime || activity.created_at * 1000 || Date.now();
+            const time = formatTime(timestamp);
+            
+            // Parse metadata
+            let metadata = activity.metadata;
+            if (typeof metadata === 'string') {
+              try { metadata = JSON.parse(metadata); } catch (e) { metadata = null; }
+            }
+            
+            // Build context section
+            let context = '';
+            if (metadata) {
+              if (metadata.from && metadata.to) {
+                context = `Status changed from <strong>${metadata.from}</strong> to <strong>${metadata.to}</strong>`;
+              }
+              if (metadata.feedback) {
+                context = `"${escapeHtml(metadata.feedback)}"`;
+              }
+              if (metadata.preview) {
+                context = `"${escapeHtml(metadata.preview)}..."`;
+              }
+              if (metadata.deliverables) {
+                const truncated = metadata.deliverables.length > 80 
+                  ? metadata.deliverables.slice(0, 80) + '...' 
+                  : metadata.deliverables;
+                context = `📦 ${escapeHtml(truncated)}`;
+              }
+            }
+            
+            // First entry of the day gets drop cap styling (via class)
+            const isFirstOfDay = actIndex === 0;
+            
+            return `
+              <div class="activity-entry">
+                <div class="activity-entry-icon">${agentIcon}</div>
+                <div class="activity-entry-body">
+                  <div class="activity-entry-headline ${isFirstOfDay && groupIndex === 0 ? '' : ''}">
+                    <strong>${escapeHtml(agentName)}</strong> ${eventInfo.verb}
+                    ${activity.taskTitle ? `<em>"${escapeHtml(activity.taskTitle)}"</em>` : ''}
+                    ${activity.message && !activity.taskTitle ? escapeHtml(activity.message) : ''}
+                  </div>
+                  <div class="activity-entry-byline">
+                    <span class="agent-name">${agentIcon} ${agentName}</span> reported at ${time}
+                  </div>
+                  ${context ? `<div class="activity-entry-context">${context}</div>` : ''}
+                </div>
+              </div>
+            `;
+          }).join('')}
+        </div>
+      `).join('')}
+    </div>
+  `;
 }
 
 function addActivity(activity) {
-  activityData.unshift({
+  const newActivity = {
     id: `act_${Date.now()}`,
     _creationTime: Date.now(),
     ...activity
-  });
+  };
+  
+  activityData.unshift(newActivity);
   
   // Persist to localStorage as backup
   localStorage.setItem('activities', JSON.stringify(activityData.slice(0, 500)));
   
+  // If Convex available, also save there
+  if (window.Convex && window.Convex.isReady && window.Convex.isReady()) {
+    window.Convex.activities.create(newActivity).catch(err => {
+      console.warn('Failed to save activity to Convex:', err);
+    });
+  }
+  
   renderActivityLog();
   
-  // Flash the log badge
   const badge = document.getElementById('log-count');
   if (badge) {
     badge.classList.add('pulse');
     setTimeout(() => badge.classList.remove('pulse'), 1000);
   }
+}
+
+function log(activity) {
+  // Alias for addActivity
+  addActivity(activity);
 }
 
 function clearActivityLog() {
@@ -214,21 +296,20 @@ function clearActivityLog() {
   }
 }
 
-// Populate agent filter dropdown
 function populateAgentFilter() {
   const select = document.getElementById('log-filter-agent');
   if (!select) return;
   
   const agents = [
     { name: 'Abbe', icon: '🧠' },
-    { name: 'Ernst', icon: '✓' },
     { name: 'Zernike', icon: '💻' },
     { name: 'Seidel', icon: '💼' },
     { name: 'Iris', icon: '🎨' },
-    { name: 'Theia', icon: '🔬' },
-    { name: 'Photon', icon: '⚙️' },
-    { name: 'Kanban', icon: '📦' },
-    { name: 'Deming', icon: '✅' }
+    { name: 'Photon', icon: '📸' },
+    { name: 'Deming', icon: '📊' },
+    { name: 'Ernst', icon: '✅' },
+    { name: 'Theia', icon: '🔮' },
+    { name: 'Kanban', icon: '📋' },
   ];
   
   agents.forEach(agent => {
@@ -243,30 +324,27 @@ function populateAgentFilter() {
 document.addEventListener('DOMContentLoaded', () => {
   populateAgentFilter();
   
-  // Check if Convex is available AND initialized
-  // If not ready yet, the real-time subscriptions will be set up later via polling
   if (window.Convex && window.Convex.isReady && window.Convex.isReady()) {
     useConvex = true;
     setupRealtimeActivities();
     console.log("📋 Activity Log: Using Convex (real-time)");
     loadActivityLog();
   } else {
-    // Convex not ready yet - will load via polling or wait for ready event
     console.log("📋 Activity Log: Waiting for Convex initialization...");
-    // Don't call loadActivityLog yet - will be called when Convex polling starts
   }
   
-  // Event listeners
   document.getElementById('refresh-log-btn')?.addEventListener('click', loadActivityLog);
   document.getElementById('clear-log-btn')?.addEventListener('click', clearActivityLog);
   document.getElementById('log-filter-agent')?.addEventListener('change', renderActivityLog);
   document.getElementById('log-filter-type')?.addEventListener('change', renderActivityLog);
 });
 
-// Export for other modules
+// Export
 window.ActivityLog = {
   add: addActivity,
+  log: log,
   load: loadActivityLog,
   clear: clearActivityLog,
+  render: renderActivityLog,
   isRealtime: () => useConvex
 };

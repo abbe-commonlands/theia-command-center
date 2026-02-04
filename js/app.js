@@ -35,6 +35,16 @@
       window.Mission.refresh();
     }
     
+    // Initialize documents on first view
+    if (tabName === "documents" && window.Documents) {
+      window.Documents.init();
+    }
+    
+    // Initialize activity log
+    if (tabName === "log" && window.ActivityLog) {
+      window.ActivityLog.load();
+    }
+    
     // Initialize 3D viz on first view
     if (tabName === "knowledge" && window.initEmbeddingViz) {
       window.initEmbeddingViz();
@@ -66,10 +76,17 @@
       window.Mission.init();
     }
 
+    // Initialize Notifications
+    if (window.Notifications) {
+      window.Notifications.init();
+      console.log("✓ Notifications initialized");
+    }
+
     // Set initial tab
     setActiveTab("mission");
     
     console.log("✓ Abbe Command Center ready");
+    console.log("📰 Newspaper editorial theme active");
   }
 
   window.App = {
