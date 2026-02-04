@@ -125,13 +125,14 @@ export default defineSchema({
 
   // Employees - staff members who need training
   employees: defineTable({
-    employeeId: v.string(),          // "EMP-001"
-    name: v.string(),                // "John Smith"
-    title: v.string(),               // "Quality Inspector"
-    department: v.string(),          // "Quality"
-    hireDate: v.number(),            // timestamp
+    employeeId: v.optional(v.string()),   // "EMP-001" - optional for legacy data
+    name: v.string(),                     // "John Smith"
+    title: v.optional(v.string()),        // "Quality Inspector" - optional for legacy
+    department: v.optional(v.string()),   // "Quality" - optional for legacy
+    hireDate: v.optional(v.number()),     // timestamp - optional for legacy
     isActive: v.boolean(),
     email: v.optional(v.string()),
+    jobRole: v.optional(v.string()),      // alternate field used by some records
     createdBy: v.string(),
   })
     .index("by_employeeId", ["employeeId"])
@@ -151,6 +152,8 @@ export default defineSchema({
     requiredFor: v.optional(v.array(v.string())), // departments/roles
     frequency: v.optional(v.string()),  // "Annual", "One-time", etc.
     isActive: v.boolean(),
+    isRequired: v.optional(v.boolean()),      // from imported data
+    validityMonths: v.optional(v.number()),   // from imported data
     createdBy: v.string(),
   })
     .index("by_courseId", ["courseId"])
@@ -211,9 +214,13 @@ export default defineSchema({
   // Quality KPIs - yearly metrics
   qualityKPIs: defineTable({
     year: v.number(),
-    totalShipped: v.number(),
-    qualityReturns: v.number(),
-    qualityReturnRate: v.number(),   // percentage
+    totalShipped: v.optional(v.number()),
+    totalShipments: v.optional(v.number()),   // alternate field name
+    totalItems: v.optional(v.number()),       // alternate field name
+    qualityReturns: v.optional(v.number()),
+    qualityReturnRate: v.optional(v.number()),   // percentage
+    itemsReturned: v.optional(v.number()),    // alternate field
+    itemReturnRate: v.optional(v.number()),   // alternate field
     notes: v.optional(v.string()),
   })
     .index("by_year", ["year"]),
