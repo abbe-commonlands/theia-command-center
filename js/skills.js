@@ -227,8 +227,20 @@ async function moveSkill(skillName, from, to) {
   showToast(`Run in terminal: ${cmd}`, 'info');
 }
 
+// Check if running locally
+function isLocalhost() {
+  return window.location.hostname === 'localhost' || window.location.hostname === '127.0.0.1';
+}
+
 // Fetch skills data from API endpoint (if available) or use defaults
 async function fetchSkillsData() {
+  // Skip gateway API calls when running remotely (Vercel)
+  if (!isLocalhost()) {
+    console.log('Running remotely, using static skills data');
+    useStaticSkillsData();
+    return;
+  }
+  
   try {
     // Try to fetch from Clawdbot gateway API
     const response = await fetch('http://127.0.0.1:18789/api/skills', { 
@@ -251,6 +263,12 @@ async function fetchSkillsData() {
 }
 
 async function fetchCronsData() {
+  // Skip gateway API calls when running remotely (Vercel)
+  if (!isLocalhost()) {
+    cronsData = [];
+    return;
+  }
+  
   try {
     const response = await fetch('http://127.0.0.1:18789/api/cron/list', {
       method: 'GET',
@@ -271,13 +289,16 @@ async function fetchCronsData() {
 function renderCrons() {
   const container = document.getElementById('crons-list');
   if (!container) return;
+  
+  // Check if running remotely (not localhost)
+  const isRemote = !window.location.hostname.includes('localhost') && !window.location.hostname.includes('127.0.0.1');
 
   if (!cronsData.length) {
     container.innerHTML = `
       <div class="skills-empty">
-        <p>No cron jobs detected</p>
+        <p>${isRemote ? 'Cron jobs only visible locally' : 'No cron jobs detected'}</p>
         <p style="font-size: var(--text-caption); color: var(--text-muted);">
-          Gateway cron registry will appear here
+          ${isRemote ? 'Connect to local gateway to view crons' : 'Gateway cron registry will appear here'}
         </p>
       </div>
     `;

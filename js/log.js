@@ -35,8 +35,9 @@ let useConvex = false;
 
 async function loadActivityLog() {
   try {
-    // Try Convex first
-    if (window.Convex && useConvex) {
+    // Try Convex first (must be both available AND initialized)
+    if (window.Convex && window.Convex.isReady && window.Convex.isReady()) {
+      useConvex = true;
       activityData = await window.Convex.activities.list(100);
     } else {
       // Fallback to localStorage
@@ -242,14 +243,18 @@ function populateAgentFilter() {
 document.addEventListener('DOMContentLoaded', () => {
   populateAgentFilter();
   
-  // Check if Convex is available
-  if (window.Convex) {
+  // Check if Convex is available AND initialized
+  // If not ready yet, the real-time subscriptions will be set up later via polling
+  if (window.Convex && window.Convex.isReady && window.Convex.isReady()) {
     useConvex = true;
     setupRealtimeActivities();
     console.log("📋 Activity Log: Using Convex (real-time)");
+    loadActivityLog();
+  } else {
+    // Convex not ready yet - will load via polling or wait for ready event
+    console.log("📋 Activity Log: Waiting for Convex initialization...");
+    // Don't call loadActivityLog yet - will be called when Convex polling starts
   }
-  
-  loadActivityLog();
   
   // Event listeners
   document.getElementById('refresh-log-btn')?.addEventListener('click', loadActivityLog);

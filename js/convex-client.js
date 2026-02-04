@@ -8,6 +8,7 @@
   let client = null;
   let listeners = new Map();
   let pollInterval = null;
+  let isReady = false;
 
   // Initialize Convex client
   async function init() {
@@ -26,7 +27,8 @@
       return false;
     }
     
-    // Start polling for updates (simulated real-time for HTTP client)
+    // Mark as ready and start polling
+    isReady = true;
     startPolling();
     
     return true;
@@ -270,5 +272,6 @@
     // For debugging
     getClient: () => client,
     getUrl: () => CONVEX_URL,
+    isReady: () => isReady,
   };
 })();
