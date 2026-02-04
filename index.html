@@ -489,11 +489,19 @@
         <div class="slide-panel-meta">
           <span class="badge" id="panel-task-status">Status</span>
           <span class="badge" id="panel-task-priority">P5</span>
-          <span id="panel-task-assignees" style="color: var(--text-muted);"></span>
         </div>
       </div>
       
       <div class="slide-panel-body">
+        <!-- Assignment -->
+        <div class="slide-panel-section">
+          <h3 class="slide-panel-section-title">👤 Assigned To</h3>
+          <div id="panel-task-assignees" style="margin-bottom: var(--space-sm);"></div>
+          <select id="panel-assign-agent" class="input select" style="width: 100%;">
+            <option value="">+ Assign agent...</option>
+          </select>
+        </div>
+        
         <!-- Description -->
         <div class="slide-panel-section">
           <h3 class="slide-panel-section-title">Description</h3>

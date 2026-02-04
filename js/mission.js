@@ -473,9 +473,43 @@
     priorityBadge.textContent = `P${task.priority || 5}`;
     priorityBadge.className = `badge ${PRIORITY_COLORS[task.priority] || 'badge-cyan'}`;
     
+    // Render assignees with remove buttons
     $("#panel-task-assignees").innerHTML = assignees.length > 0 
-      ? assignees.map(a => `${a.emoji} ${a.name}`).join(', ')
-      : '<span style="color: var(--text-muted);">Unassigned</span>';
+      ? assignees.map(a => `
+          <span class="assignee-chip" data-agent-id="${a._id || a.id}" style="display: inline-flex; align-items: center; gap: 4px; background: var(--bg-primary); padding: 4px 8px; border-radius: var(--radius-sm); margin-right: 4px; margin-bottom: 4px;">
+            ${a.emoji} ${a.name}
+            <button class="remove-assignee" data-agent-id="${a._id || a.id}" style="background: none; border: none; cursor: pointer; color: var(--text-muted); font-size: 14px; padding: 0 2px;">&times;</button>
+          </span>
+        `).join('')
+      : '<span style="color: var(--text-muted);">No agents assigned</span>';
+    
+    // Bind remove assignee buttons
+    document.querySelectorAll('.remove-assignee').forEach(btn => {
+      btn.addEventListener('click', async (e) => {
+        e.stopPropagation();
+        const agentId = btn.dataset.agentId;
+        await removeAssignee(taskId, agentId);
+      });
+    });
+    
+    // Populate and bind agent assignment dropdown
+    const assignSelect = $("#panel-assign-agent");
+    assignSelect.innerHTML = '<option value="">+ Assign agent...</option>';
+    cachedAgents.forEach(agent => {
+      // Don't show already assigned agents
+      if (!task.assigneeIds?.includes(agent._id || agent.id)) {
+        const option = document.createElement('option');
+        option.value = agent._id || agent.id;
+        option.textContent = `${agent.emoji} ${agent.name}`;
+        assignSelect.appendChild(option);
+      }
+    });
+    assignSelect.onchange = async (e) => {
+      if (e.target.value) {
+        await addAssignee(taskId, e.target.value);
+        e.target.value = '';
+      }
+    };
     
     // Description
     $("#panel-task-description").innerHTML = task.description 
@@ -556,6 +590,54 @@
     const panel = $("#task-detail-panel");
     panel.classList.remove("open");
     currentDetailTask = null;
+  }
+
+  // Add an agent to a task
+  async function addAssignee(taskId, agentId) {
+    const task = cachedTasks.find(t => (t._id || t.id) === taskId);
+    if (!task) return;
+    
+    const currentAssignees = task.assigneeIds || [];
+    if (currentAssignees.includes(agentId)) return;
+    
+    const newAssignees = [...currentAssignees, agentId];
+    
+    try {
+      const db = getDB();
+      await db.tasks.update(taskId, { assigneeIds: newAssignees });
+      showToast("Agent assigned", "success");
+      
+      // Refresh task detail panel
+      if (!useConvex) await loadTasks();
+      const updatedTask = cachedTasks.find(t => (t._id || t.id) === taskId);
+      if (updatedTask) openTaskDetail(updatedTask);
+    } catch (err) {
+      console.error("Failed to assign agent:", err);
+      showToast("Failed to assign agent", "error");
+    }
+  }
+  
+  // Remove an agent from a task
+  async function removeAssignee(taskId, agentId) {
+    const task = cachedTasks.find(t => (t._id || t.id) === taskId);
+    if (!task) return;
+    
+    const currentAssignees = task.assigneeIds || [];
+    const newAssignees = currentAssignees.filter(id => id !== agentId);
+    
+    try {
+      const db = getDB();
+      await db.tasks.update(taskId, { assigneeIds: newAssignees });
+      showToast("Agent removed", "success");
+      
+      // Refresh task detail panel
+      if (!useConvex) await loadTasks();
+      const updatedTask = cachedTasks.find(t => (t._id || t.id) === taskId);
+      if (updatedTask) openTaskDetail(updatedTask);
+    } catch (err) {
+      console.error("Failed to remove agent:", err);
+      showToast("Failed to remove agent", "error");
+    }
   }
 
   function getNextStatus(currentStatus) {
