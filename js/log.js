@@ -27,6 +27,7 @@ const EVENT_TYPES = {
   message_sent: { label: 'Discussion', icon: '💬', verb: 'commented on' },
   document_created: { label: 'Document', icon: '📄', verb: 'published' },
   agent_status_changed: { label: 'Status', icon: '🔄', verb: 'status changed to' },
+  agent_message: { label: 'Comms', icon: '📡', verb: 'messaged' },
   mention: { label: 'Mention', icon: '📣', verb: 'mentioned' },
   priority_requested: { label: 'Priority', icon: '⚡', verb: 'requested priority change for' },
   heartbeat: { label: 'Heartbeat', icon: '💓', verb: 'checked in' },

@@ -69,3 +69,32 @@ export const create = mutation({
     });
   },
 });
+
+// Log agent-to-agent message (convenience mutation)
+export const logAgentMessage = mutation({
+  args: {
+    fromAgent: v.string(),    // Name of sending agent
+    toAgent: v.string(),      // Name of receiving agent
+    summary: v.string(),      // Brief summary of message content
+  },
+  handler: async (ctx, args) => {
+    // Try to find the sending agent's ID
+    const fromAgentRecord = await ctx.db
+      .query("agents")
+      .filter((q) => q.eq(q.field("name"), args.fromAgent))
+      .first();
+
+    return await ctx.db.insert("activities", {
+      type: "agent_message",
+      agentId: fromAgentRecord?._id,
+      agentName: args.fromAgent,
+      message: `${args.fromAgent} → ${args.toAgent}: ${args.summary}`,
+      metadata: {
+        from: args.fromAgent,
+        to: args.toAgent,
+        summary: args.summary,
+      },
+    });
+  },
+});
+

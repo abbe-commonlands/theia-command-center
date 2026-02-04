@@ -74,6 +74,7 @@ export default defineSchema({
       v.literal("message_sent"),
       v.literal("document_created"),
       v.literal("agent_status_changed"),
+      v.literal("agent_message"),
       v.literal("mention")
     ),
     agentId: v.optional(v.id("agents")),
