@@ -11,15 +11,18 @@
 
   // Initialize Convex client
   async function init() {
-    // The Convex browser bundle exposes ConvexHttpClient
-    if (typeof window.ConvexHttpClient !== 'undefined') {
-      client = new window.ConvexHttpClient(CONVEX_URL);
+    // The Convex browser bundle exposes window.convex
+    // Access ConvexHttpClient via convex.ConvexHttpClient
+    const convexBundle = window.convex;
+    
+    if (convexBundle && typeof convexBundle.ConvexHttpClient !== 'undefined') {
+      client = new convexBundle.ConvexHttpClient(CONVEX_URL);
       console.log("✅ Convex HTTP client initialized:", CONVEX_URL);
-    } else if (typeof window.ConvexClient !== 'undefined') {
-      client = new window.ConvexClient(CONVEX_URL);
-      console.log("✅ Convex client initialized:", CONVEX_URL);
+    } else if (convexBundle && typeof convexBundle.ConvexClient !== 'undefined') {
+      client = new convexBundle.ConvexClient(CONVEX_URL);
+      console.log("✅ Convex real-time client initialized:", CONVEX_URL);
     } else {
-      console.error("❌ Convex client not loaded. Falling back to IndexedDB.");
+      console.error("❌ Convex client not loaded. window.convex =", convexBundle, "Falling back to IndexedDB.");
       return false;
     }
     
