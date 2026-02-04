@@ -3,7 +3,7 @@
  * Real-time database with subscriptions
  */
 (() => {
-  const CONVEX_URL = "https://quick-whale-641.convex.cloud";
+  const CONVEX_URL = "https://aromatic-trout-929.convex.cloud";
   
   let client = null;
   let listeners = new Map();
