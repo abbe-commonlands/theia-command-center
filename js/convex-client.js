@@ -93,18 +93,16 @@
   async function query(path, args = {}) {
     if (!client) throw new Error("Convex not initialized");
     
-    // Parse path like "agents:list" to module and function
-    const [module, fn] = path.split(":");
-    
-    // Use the query method
-    return await client.query(path.replace(":", "."), args);
+    // ConvexHttpClient expects "module:function" format (e.g., "agents:list")
+    // Do NOT convert to dot notation
+    return await client.query(path, args);
   }
 
   // Mutation wrapper
   async function mutate(path, args = {}) {
     if (!client) throw new Error("Convex not initialized");
     
-    return await client.mutation(path.replace(":", "."), args);
+    return await client.mutation(path, args);
   }
 
   // ===== AGENTS API =====
