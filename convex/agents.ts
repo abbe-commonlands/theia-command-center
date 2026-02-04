@@ -186,6 +186,33 @@ export const sleep = mutation({
   },
 });
 
+// Lightweight ping - just update lastActiveAt (for heartbeats)
+export const ping = mutation({
+  args: {
+    sessionKey: v.string(),
+    status: v.optional(v.union(v.literal("idle"), v.literal("active"), v.literal("blocked"))),
+  },
+  handler: async (ctx, args) => {
+    const agent = await ctx.db
+      .query("agents")
+      .withIndex("by_session", (q) => q.eq("sessionKey", args.sessionKey))
+      .first();
+
+    if (!agent) throw new Error(`Agent not found: ${args.sessionKey}`);
+
+    const updates: Record<string, unknown> = {
+      lastActiveAt: Date.now(),
+    };
+    
+    if (args.status && args.status !== agent.status) {
+      updates.status = args.status;
+    }
+
+    await ctx.db.patch(agent._id, updates);
+    return agent._id;
+  },
+});
+
 // Seed initial agents
 export const seed = mutation({
   args: {},
