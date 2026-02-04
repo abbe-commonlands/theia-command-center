@@ -1,0 +1,23 @@
+#!/bin/bash
+# =============================================================================
+# SAFE CONVEX WRAPPER
+# Validates deployment configuration before running any Convex command
+# =============================================================================
+
+SCRIPT_DIR="$(cd "$(dirname "$0")" && pwd)"
+PROJECT_DIR="$(dirname "$SCRIPT_DIR")"
+
+cd "$PROJECT_DIR"
+
+# Always validate before any Convex operation
+if ! ./scripts/validate-deployment.sh; then
+    echo ""
+    echo "Run ./scripts/fix-deployment.sh to fix, then retry."
+    exit 1
+fi
+
+echo ""
+echo "Running: npx convex $@"
+echo ""
+
+npx convex "$@"
