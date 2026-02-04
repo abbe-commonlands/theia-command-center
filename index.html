@@ -96,34 +96,90 @@
         role="tabpanel"
         aria-labelledby="mission-tab"
       >
+        <!-- Quick Stats Dashboard -->
+        <div class="stats-row" style="display: grid; grid-template-columns: repeat(auto-fit, minmax(180px, 1fr)); gap: var(--space-md); margin-bottom: var(--space-md);">
+          <div class="stat-card">
+            <div class="stat-icon">✅</div>
+            <div class="stat-content">
+              <div class="stat-value" id="stat-completed-today">0</div>
+              <div class="stat-label">Completed Today</div>
+            </div>
+          </div>
+          <div class="stat-card">
+            <div class="stat-icon">🔄</div>
+            <div class="stat-content">
+              <div class="stat-value" id="stat-in-progress">0</div>
+              <div class="stat-label">In Progress</div>
+            </div>
+          </div>
+          <div class="stat-card">
+            <div class="stat-icon">👀</div>
+            <div class="stat-content">
+              <div class="stat-value" id="stat-in-review">0</div>
+              <div class="stat-label">Pending Review</div>
+            </div>
+          </div>
+          <div class="stat-card">
+            <div class="stat-icon">🚨</div>
+            <div class="stat-content">
+              <div class="stat-value" id="stat-blocked">0</div>
+              <div class="stat-label">Blocked</div>
+            </div>
+          </div>
+          <div class="stat-card">
+            <div class="stat-icon">🤖</div>
+            <div class="stat-content">
+              <div class="stat-value" id="stat-active-agents">0</div>
+              <div class="stat-label">Active Agents</div>
+            </div>
+          </div>
+        </div>
+
         <!-- Agent Status Row -->
         <div class="card" style="margin-bottom: var(--space-md);">
           <div class="card-header">
             <div>
-              <h2 class="card-title">Agent Status</h2>
-              <p class="card-subtitle">AI squad operational overview</p>
+              <h2 class="card-title">👥 Squad Status</h2>
+              <p class="card-subtitle">Click an agent to see their details and current work</p>
             </div>
+            <div class="live-indicator" id="live-indicator">LIVE</div>
           </div>
           <div id="agent-grid" class="agent-grid">
             <!-- Populated by JS -->
           </div>
         </div>
 
-        <!-- Task Board + Activity -->
-        <div class="grid-dashboard">
-          <div class="card grid-span-8" style="grid-column: span 12;">
-            <div class="card-header">
-              <div>
-                <h2 class="card-title">Task Board</h2>
-                <p class="card-subtitle">Drag tasks between columns or click to edit</p>
-              </div>
+        <!-- Task Board -->
+        <div class="card">
+          <div class="card-header">
+            <div>
+              <h2 class="card-title">📋 Task Board</h2>
+              <p class="card-subtitle">Drag tasks between columns or click to expand details</p>
+            </div>
+            <div class="flex gap-sm">
+              <button class="btn btn-secondary" id="refresh-tasks-btn">
+                <span>🔄</span> Refresh
+              </button>
               <button class="btn btn-primary" id="new-task-btn">
                 <span>+</span> New Task
               </button>
             </div>
-            <div id="kanban-board" class="kanban-board">
-              <!-- Populated by JS -->
+          </div>
+          <div id="kanban-board" class="kanban-board">
+            <!-- Populated by JS -->
+          </div>
+        </div>
+
+        <!-- Recent Completions -->
+        <div class="card" style="margin-top: var(--space-md);">
+          <div class="card-header">
+            <div>
+              <h2 class="card-title">🎉 Recently Completed</h2>
+              <p class="card-subtitle">Tasks finished in the last 24 hours</p>
             </div>
+          </div>
+          <div id="recent-completions" class="recent-completions">
+            <p style="color: var(--text-muted); padding: var(--space-md);">No recent completions</p>
           </div>
         </div>
       </section>
@@ -298,10 +354,13 @@
         <div class="card" style="margin-bottom: var(--space-md);">
           <div class="card-header">
             <div>
-              <h2 class="card-title">Activity Log</h2>
-              <p class="card-subtitle">Agent-to-agent interactions and task events</p>
+              <h2 class="card-title">📰 Activity Feed</h2>
+              <p class="card-subtitle">Real-time stream of agent activity and task events</p>
             </div>
-            <div class="flex gap-sm">
+            <div class="flex gap-sm" style="flex-wrap: wrap;">
+              <button class="activity-filter-completions" id="filter-completions-btn">
+                ✅ Completions Only
+              </button>
               <select id="log-filter-agent" class="input select" style="width: auto;">
                 <option value="">All Agents</option>
               </select>
@@ -310,17 +369,42 @@
                 <option value="task_created">Task Created</option>
                 <option value="task_moved">Task Moved</option>
                 <option value="task_completed">Task Completed</option>
-                <option value="task_verified">Task Verified</option>
+                <option value="task_verified">Task Verified ✅</option>
                 <option value="task_rejected">Task Rejected</option>
                 <option value="message_sent">Message Sent</option>
-                <option value="priority_requested">Priority Request</option>
+                <option value="document_created">Document Created</option>
+                <option value="agent_status_changed">Agent Status</option>
               </select>
               <button class="btn btn-secondary" id="refresh-log-btn">
                 <span>🔄</span> Refresh
               </button>
-              <button class="btn btn-secondary" id="clear-log-btn">
-                <span>🗑️</span> Clear
-              </button>
+            </div>
+          </div>
+        </div>
+
+        <!-- Quick Summary -->
+        <div class="card" style="margin-bottom: var(--space-md); padding: var(--space-md);">
+          <div style="display: flex; gap: var(--space-lg); flex-wrap: wrap; align-items: center;">
+            <div style="display: flex; align-items: center; gap: var(--space-sm);">
+              <span style="font-size: 1.5rem;">📊</span>
+              <div>
+                <div style="font-size: var(--text-caption); color: var(--text-muted);">Today's Activity</div>
+                <div style="font-weight: 600; color: var(--headline-warm);" id="today-activity-count">0 events</div>
+              </div>
+            </div>
+            <div style="display: flex; align-items: center; gap: var(--space-sm);">
+              <span style="font-size: 1.5rem;">✅</span>
+              <div>
+                <div style="font-size: var(--text-caption); color: var(--text-muted);">Verified Today</div>
+                <div style="font-weight: 600; color: var(--accent-green);" id="today-verified-count">0 tasks</div>
+              </div>
+            </div>
+            <div style="display: flex; align-items: center; gap: var(--space-sm);">
+              <span style="font-size: 1.5rem;">💬</span>
+              <div>
+                <div style="font-size: var(--text-caption); color: var(--text-muted);">Comments</div>
+                <div style="font-weight: 600; color: var(--accent-cyan);" id="today-comments-count">0 messages</div>
+              </div>
             </div>
           </div>
         </div>
@@ -453,7 +537,7 @@
 
   <!-- Version Footer -->
   <footer class="version-footer" style="position: fixed; bottom: 8px; right: 12px; font-size: 11px; color: #666; z-index: 10; font-family: var(--font-serif);">
-    📰 The Daily Dispatch | v0.3.0 | Build: 2026-02-03
+    📰 The Daily Dispatch | v0.4.0 | Build: 2026-02-03
   </footer>
 
   <!-- Convex Client (CDN) -->

@@ -34,6 +34,7 @@ const EVENT_TYPES = {
 
 let activityData = [];
 let useConvex = false;
+let filterCompletionsOnly = false;
 
 function escapeHtml(text) {
   const div = document.createElement('div');
@@ -147,12 +148,24 @@ function renderActivityLog() {
   
   let filtered = activityData;
   
+  // Completions only filter
+  if (filterCompletionsOnly) {
+    filtered = filtered.filter(a => 
+      a.type === 'task_completed' || 
+      a.type === 'task_verified' || 
+      a.type === 'document_created'
+    );
+  }
+  
   if (filterAgent) {
     filtered = filtered.filter(a => a.agentName === filterAgent || a.agent_id === filterAgent);
   }
   if (filterType) {
     filtered = filtered.filter(a => a.type === filterType);
   }
+  
+  // Update summary counts
+  updateActivitySummary();
   
   // Update badge
   const badge = document.getElementById('log-count');
@@ -337,7 +350,41 @@ document.addEventListener('DOMContentLoaded', () => {
   document.getElementById('clear-log-btn')?.addEventListener('click', clearActivityLog);
   document.getElementById('log-filter-agent')?.addEventListener('change', renderActivityLog);
   document.getElementById('log-filter-type')?.addEventListener('change', renderActivityLog);
+  document.getElementById('filter-completions-btn')?.addEventListener('click', toggleCompletionsFilter);
 });
+
+function updateActivitySummary() {
+  const today = new Date();
+  today.setHours(0, 0, 0, 0);
+  const todayMs = today.getTime();
+  
+  const todayActivities = activityData.filter(a => {
+    const timestamp = a._creationTime || a.created_at * 1000 || 0;
+    return timestamp >= todayMs;
+  });
+  
+  const todayVerified = todayActivities.filter(a => a.type === 'task_verified').length;
+  const todayComments = todayActivities.filter(a => a.type === 'message_sent').length;
+  
+  const todayActivityCount = document.getElementById('today-activity-count');
+  const todayVerifiedCount = document.getElementById('today-verified-count');
+  const todayCommentsCount = document.getElementById('today-comments-count');
+  
+  if (todayActivityCount) todayActivityCount.textContent = `${todayActivities.length} events`;
+  if (todayVerifiedCount) todayVerifiedCount.textContent = `${todayVerified} tasks`;
+  if (todayCommentsCount) todayCommentsCount.textContent = `${todayComments} messages`;
+}
+
+function toggleCompletionsFilter() {
+  filterCompletionsOnly = !filterCompletionsOnly;
+  
+  const btn = document.getElementById('filter-completions-btn');
+  if (btn) {
+    btn.classList.toggle('active', filterCompletionsOnly);
+  }
+  
+  renderActivityLog();
+}
 
 // Export
 window.ActivityLog = {
@@ -346,5 +393,6 @@ window.ActivityLog = {
   load: loadActivityLog,
   clear: clearActivityLog,
   render: renderActivityLog,
-  isRealtime: () => useConvex
+  isRealtime: () => useConvex,
+  toggleCompletions: toggleCompletionsFilter,
 };

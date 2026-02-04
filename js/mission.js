@@ -111,6 +111,36 @@
       const card = createEl("div", "agent-card");
       card.dataset.id = agent._id || agent.id;
       
+      // Add status-based classes
+      if (agent.status === "active") card.classList.add("working");
+      if (agent.status === "blocked") card.classList.add("blocked");
+      
+      // Find current task
+      let currentTaskHtml = "";
+      if (agent.currentTaskId) {
+        const currentTask = cachedTasks.find(t => (t._id || t.id) === agent.currentTaskId);
+        if (currentTask) {
+          currentTaskHtml = `
+            <div class="agent-current-task">
+              <strong>Working:</strong> ${escapeHtml(currentTask.title.slice(0, 30))}${currentTask.title.length > 30 ? '...' : ''}
+            </div>
+          `;
+        }
+      } else if (agent.status === "active") {
+        // Find any in_progress task assigned to this agent
+        const agentId = agent._id || agent.id;
+        const activeTask = cachedTasks.find(t => 
+          t.status === "in_progress" && t.assigneeIds?.includes(agentId)
+        );
+        if (activeTask) {
+          currentTaskHtml = `
+            <div class="agent-current-task">
+              <strong>Working:</strong> ${escapeHtml(activeTask.title.slice(0, 30))}${activeTask.title.length > 30 ? '...' : ''}
+            </div>
+          `;
+        }
+      }
+      
       // Context usage display
       const contextPercent = agent.contextPercent || 0;
       const contextColor = contextPercent >= 80 ? 'var(--accent-red)' : 
@@ -128,6 +158,9 @@
         </div>
       ` : '';
       
+      // Last active time
+      const lastActive = agent.lastActiveAt ? formatTimeAgo(agent.lastActiveAt) : 'never';
+      
       card.innerHTML = `
         <div class="agent-icon">${agent.emoji || "🤖"}</div>
         <div class="agent-name">${agent.name}</div>
@@ -136,15 +169,29 @@
           <span class="status-dot ${agent.status || "idle"}"></span>
           <span>${agent.status || "idle"}</span>
         </div>
-        <div style="margin-top: var(--space-xs); font-size: var(--text-caption); color: var(--accent-cyan);">
-          ${agent.model || "sonnet"}
+        <div style="margin-top: var(--space-xs); font-size: 10px; color: var(--text-muted);">
+          <span style="color: var(--accent-cyan);">${agent.model || "sonnet"}</span>
+          · last: ${lastActive}
         </div>
+        ${currentTaskHtml}
         ${contextBar}
       `;
       
       card.addEventListener("click", () => openAgentSession(agent));
       container.appendChild(card);
     });
+  }
+  
+  function formatTimeAgo(timestamp) {
+    if (!timestamp) return "never";
+    const diffMs = Date.now() - timestamp;
+    const diffMins = Math.floor(diffMs / 60000);
+    const diffHours = Math.floor(diffMs / 3600000);
+    
+    if (diffMins < 1) return "just now";
+    if (diffMins < 60) return `${diffMins}m ago`;
+    if (diffHours < 24) return `${diffHours}h ago`;
+    return new Date(timestamp).toLocaleDateString();
   }
 
   function openAgentSession(agent) {
@@ -660,6 +707,105 @@
       const activeTasks = cachedTasks.filter((t) => t.status !== "done").length;
       badge.textContent = activeTasks;
     }
+    
+    // Update stats dashboard
+    updateStats();
+    
+    // Update recent completions
+    updateRecentCompletions();
+  }
+  
+  function updateStats() {
+    // Completed today (tasks with status=done that were verified today)
+    const today = new Date();
+    today.setHours(0, 0, 0, 0);
+    const completedToday = cachedTasks.filter(t => 
+      t.status === "done" && t.verifiedAt && t.verifiedAt >= today.getTime()
+    ).length;
+    
+    const inProgress = cachedTasks.filter(t => t.status === "in_progress").length;
+    const inReview = cachedTasks.filter(t => t.status === "review").length;
+    const activeAgents = cachedAgents.filter(a => a.status === "active").length;
+    const blockedAgents = cachedAgents.filter(a => a.status === "blocked").length;
+    
+    // Update stat values
+    const statCompletedToday = $("#stat-completed-today");
+    const statInProgress = $("#stat-in-progress");
+    const statInReview = $("#stat-in-review");
+    const statBlocked = $("#stat-blocked");
+    const statActiveAgents = $("#stat-active-agents");
+    
+    if (statCompletedToday) statCompletedToday.textContent = completedToday;
+    if (statInProgress) statInProgress.textContent = inProgress;
+    if (statInReview) statInReview.textContent = inReview;
+    if (statBlocked) statBlocked.textContent = blockedAgents;
+    if (statActiveAgents) statActiveAgents.textContent = activeAgents;
+    
+    // Add alert class if there are blocked agents
+    const blockedCard = statBlocked?.closest(".stat-card");
+    if (blockedCard) {
+      blockedCard.classList.toggle("alert", blockedAgents > 0);
+    }
+    
+    // Add success class if completions today
+    const completedCard = statCompletedToday?.closest(".stat-card");
+    if (completedCard) {
+      completedCard.classList.toggle("success", completedToday > 0);
+    }
+  }
+  
+  function updateRecentCompletions() {
+    const container = $("#recent-completions");
+    if (!container) return;
+    
+    // Get completed tasks from last 24 hours
+    const oneDayAgo = Date.now() - (24 * 60 * 60 * 1000);
+    const recentDone = cachedTasks
+      .filter(t => t.status === "done" && t.verifiedAt && t.verifiedAt >= oneDayAgo)
+      .sort((a, b) => (b.verifiedAt || 0) - (a.verifiedAt || 0))
+      .slice(0, 5);
+    
+    if (recentDone.length === 0) {
+      container.innerHTML = `<p style="color: var(--text-muted); padding: var(--space-md);">No completions in the last 24 hours</p>`;
+      return;
+    }
+    
+    container.innerHTML = recentDone.map(task => {
+      const assignees = cachedAgents.filter(a => task.assigneeIds?.includes(a._id || a.id));
+      const assigneeNames = assignees.map(a => a.name).join(", ") || "Unassigned";
+      const timeAgo = formatTimeAgo(task.verifiedAt);
+      
+      return `
+        <div class="completion-item" data-task-id="${task._id || task.id}">
+          <div class="completion-icon">✅</div>
+          <div class="completion-content">
+            <div class="completion-title">${escapeHtml(task.title)}</div>
+            <div class="completion-meta">Completed by ${escapeHtml(assigneeNames)}</div>
+          </div>
+          <div class="completion-time">${timeAgo}</div>
+        </div>
+      `;
+    }).join("");
+    
+    // Bind click to open task detail
+    container.querySelectorAll(".completion-item").forEach(item => {
+      item.addEventListener("click", () => {
+        const taskId = item.dataset.taskId;
+        const task = cachedTasks.find(t => (t._id || t.id) === taskId);
+        if (task) openTaskDetail(task);
+      });
+    });
+  }
+  
+  function formatTimeAgo(timestamp) {
+    const diffMs = Date.now() - timestamp;
+    const diffMins = Math.floor(diffMs / 60000);
+    const diffHours = Math.floor(diffMs / 3600000);
+    
+    if (diffMins < 1) return "just now";
+    if (diffMins < 60) return `${diffMins}m ago`;
+    if (diffHours < 24) return `${diffHours}h ago`;
+    return new Date(timestamp).toLocaleDateString();
   }
 
   // ============ Toast ============
@@ -694,6 +840,16 @@
       newTaskBtn.addEventListener("click", () => openTaskModal());
     }
     
+    // Refresh tasks button
+    const refreshTasksBtn = $("#refresh-tasks-btn");
+    if (refreshTasksBtn) {
+      refreshTasksBtn.addEventListener("click", async () => {
+        await loadTasks();
+        await loadAgents();
+        showToast("Refreshed", "success");
+      });
+    }
+    
     // Modal close button (X)
     const modalCloseBtn = $("#modal-close");
     if (modalCloseBtn) {
@@ -709,7 +865,10 @@
     }
     
     document.addEventListener("keydown", (e) => {
-      if (e.key === "Escape") closeTaskModal();
+      if (e.key === "Escape") {
+        closeTaskModal();
+        closeTaskDetailPanel();
+      }
     });
   }
 

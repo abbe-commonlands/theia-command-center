@@ -1851,3 +1851,255 @@ body {
   0%, 100% { opacity: 1; }
   50% { opacity: 0.3; }
 }
+
+/* ============================================
+   Quick Stats Dashboard
+   ============================================ */
+
+.stat-card {
+  display: flex;
+  align-items: center;
+  gap: var(--space-md);
+  padding: var(--space-md);
+  background: var(--bg-secondary);
+  border: 1px solid var(--border-subtle);
+  border-radius: var(--radius-md);
+  transition: all var(--duration-normal) var(--ease-out);
+}
+
+.stat-card:hover {
+  border-color: var(--accent-editorial);
+  transform: translateY(-2px);
+  box-shadow: 0 4px 12px rgba(0, 0, 0, 0.3);
+}
+
+.stat-icon {
+  font-size: 1.75rem;
+  opacity: 0.9;
+}
+
+.stat-content {
+  flex: 1;
+}
+
+.stat-value {
+  font-family: var(--font-serif);
+  font-size: 1.75rem;
+  font-weight: 600;
+  color: var(--headline-warm);
+  line-height: 1;
+}
+
+.stat-label {
+  font-size: var(--text-caption);
+  color: var(--text-muted);
+  margin-top: 2px;
+}
+
+/* Highlight important stats */
+.stat-card.alert .stat-value {
+  color: var(--accent-red);
+}
+
+.stat-card.success .stat-value {
+  color: var(--accent-green);
+}
+
+/* ============================================
+   Recent Completions Section
+   ============================================ */
+
+.recent-completions {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-xs);
+  max-height: 200px;
+  overflow-y: auto;
+}
+
+.completion-item {
+  display: flex;
+  align-items: center;
+  gap: var(--space-md);
+  padding: var(--space-sm) var(--space-md);
+  background: var(--bg-primary);
+  border-radius: var(--radius-sm);
+  border-left: 3px solid var(--accent-green);
+}
+
+.completion-item:hover {
+  background: var(--bg-tertiary);
+}
+
+.completion-icon {
+  font-size: 1.25rem;
+}
+
+.completion-content {
+  flex: 1;
+  min-width: 0;
+}
+
+.completion-title {
+  font-weight: 500;
+  color: var(--text-primary);
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.completion-meta {
+  font-size: var(--text-caption);
+  color: var(--text-muted);
+}
+
+.completion-time {
+  font-size: var(--text-caption);
+  color: var(--accent-editorial);
+  font-style: italic;
+  white-space: nowrap;
+}
+
+/* ============================================
+   Enhanced Agent Cards
+   ============================================ */
+
+.agent-card {
+  position: relative;
+}
+
+.agent-card.working {
+  border-color: var(--accent-green);
+  box-shadow: 0 0 12px rgba(0, 255, 136, 0.15);
+}
+
+.agent-card.blocked {
+  border-color: var(--accent-red);
+}
+
+.agent-current-task {
+  margin-top: var(--space-sm);
+  padding: var(--space-xs) var(--space-sm);
+  background: var(--bg-tertiary);
+  border-radius: var(--radius-sm);
+  font-size: 11px;
+  color: var(--text-muted);
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.agent-current-task strong {
+  color: var(--accent-green);
+}
+
+/* ============================================
+   System Status Indicator
+   ============================================ */
+
+.system-status {
+  display: flex;
+  align-items: center;
+  gap: var(--space-sm);
+  font-size: var(--text-caption);
+  color: var(--text-muted);
+}
+
+.system-status-dot {
+  width: 8px;
+  height: 8px;
+  border-radius: 50%;
+  background: var(--accent-green);
+  animation: pulse-green 2s infinite;
+}
+
+@keyframes pulse-green {
+  0%, 100% { box-shadow: 0 0 0 0 rgba(0, 255, 136, 0.4); }
+  50% { box-shadow: 0 0 0 6px rgba(0, 255, 136, 0); }
+}
+
+.system-status.disconnected .system-status-dot {
+  background: var(--accent-red);
+  animation: none;
+}
+
+/* ============================================
+   Enhanced Task Cards
+   ============================================ */
+
+.task-card {
+  position: relative;
+}
+
+.task-card.has-comments::after {
+  content: "💬";
+  position: absolute;
+  top: var(--space-xs);
+  right: var(--space-xs);
+  font-size: 12px;
+}
+
+.task-card.has-deliverable::before {
+  content: "";
+  position: absolute;
+  top: 0;
+  left: 0;
+  right: 0;
+  height: 3px;
+  background: var(--accent-green);
+  border-radius: var(--radius-sm) var(--radius-sm) 0 0;
+}
+
+.task-card .task-assignee-avatars {
+  display: flex;
+  gap: 2px;
+  margin-top: var(--space-xs);
+}
+
+.task-card .task-assignee-avatar {
+  font-size: 14px;
+}
+
+/* ============================================
+   Activity Feed Enhancements
+   ============================================ */
+
+.activity-filter-completions {
+  display: flex;
+  align-items: center;
+  gap: var(--space-xs);
+  padding: var(--space-sm) var(--space-md);
+  background: rgba(0, 255, 136, 0.1);
+  border: 1px solid rgba(0, 255, 136, 0.3);
+  border-radius: var(--radius-md);
+  cursor: pointer;
+  font-size: var(--text-caption);
+  color: var(--accent-green);
+  transition: all var(--duration-fast);
+}
+
+.activity-filter-completions:hover {
+  background: rgba(0, 255, 136, 0.15);
+}
+
+.activity-filter-completions.active {
+  background: var(--accent-green);
+  color: var(--bg-primary);
+}
+
+/* Completion highlight in feed */
+.activity-entry.completion {
+  background: rgba(0, 255, 136, 0.05);
+  border-left: 3px solid var(--accent-green);
+  margin-left: -3px;
+  padding-left: calc(var(--space-md) + 3px);
+}
+
+/* ============================================
+   Document Badge in Nav
+   ============================================ */
+
+.nav-tab .doc-badge {
+  background: var(--accent-editorial);
+  color: var(--bg-primary);
+}
