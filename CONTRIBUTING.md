@@ -1,45 +1,102 @@
-# Contributing to Mission Control Dashboard
+# Contributing to Abbe Command Center
 
-## ⚠️ LOCKED REPOSITORY
+## 🚨 CRITICAL: PR-ONLY WORKFLOW
 
-**Effective 2026-02-04** - By order of Max
+**NO agent may push directly to main. EVER.**
 
-### Rules for ALL agents:
+This repository requires Pull Request review before any code reaches main.
 
-1. **NO direct pushes to `main`** - Ever
-2. **Create feature branches** - `feature/your-change-name`
-3. **Submit PRs for review** - Abbe or Max must approve
-4. **Run `npx convex deploy`** - After schema changes (Abbe only)
+---
 
-### Why?
+## The Rules
 
-A broken dashboard was pushed because:
-- Schema changes weren't deployed
-- Files were committed without testing
-- No review process
+### For ALL Agents (Zernike, Iris, Seidel, Photon, Kanban, Deming, Ernst, Theia)
 
-### Workflow
+1. **Create a feature branch**
+   ```bash
+   git checkout -b feature/your-feature-name
+   ```
 
-```bash
-# 1. Create branch
-git checkout -b feature/my-change
+2. **Make your changes and commit**
+   ```bash
+   git add -A
+   git commit -m "feat: description of changes"
+   ```
 
-# 2. Make changes
-# ...
+3. **Push your branch (NOT main)**
+   ```bash
+   git push origin feature/your-feature-name
+   ```
 
-# 3. Test locally
-npx convex dev  # Must work without errors
+4. **Create a Pull Request**
+   ```bash
+   gh pr create --title "feat: your feature" --body "Description of changes"
+   ```
 
-# 4. Commit and push branch
-git add -A
-git commit -m "feat: description"
-git push origin feature/my-change
+5. **STOP. Wait for Abbe to review.**
 
-# 5. Create PR on GitHub
-# 6. Wait for Abbe/Max approval
-# 7. Abbe merges and deploys
-```
+### For Abbe ONLY
 
-### Contact
+1. Review PR for:
+   - Schema compatibility (will new fields break existing data?)
+   - Dependency conflicts
+   - Breaking changes to Convex functions
 
-Questions? Ping @Abbe in Mission Control.
+2. Test locally:
+   ```bash
+   git fetch origin
+   git checkout pr-branch
+   npx convex dev --once  # Verify schema validates
+   ```
+
+3. If approved, merge and deploy:
+   ```bash
+   gh pr merge --squash
+   npx convex deploy --yes
+   ```
+
+---
+
+## Why This Matters
+
+On 2026-02-04, agents pushed schema changes directly to main without PR review:
+- Added required fields to `employees` table
+- Added fields to `qualityKPIs` without matching existing data
+- Added fields to `trainingCourses` not in schema
+
+**Result:** Production Convex deployment broke. Schema validation failed.
+
+This is exactly why we have code review.
+
+---
+
+## Checklist Before PR
+
+- [ ] `npx convex dev --once` passes locally
+- [ ] No new required fields added to tables with existing data
+- [ ] If adding new tables, documented in PR description
+- [ ] Tested UI changes in browser
+
+---
+
+## Branch Naming
+
+- `feature/` — New functionality
+- `fix/` — Bug fixes
+- `refactor/` — Code cleanup
+- `docs/` — Documentation only
+
+---
+
+## Commit Messages
+
+Use conventional commits:
+- `feat:` — New feature
+- `fix:` — Bug fix
+- `refactor:` — Code change that neither fixes nor adds
+- `docs:` — Documentation
+- `chore:` — Maintenance
+
+---
+
+**Abbe is the only merge authority for this repository.**
