@@ -1,29 +1,9 @@
 /**
  * Convex Client for Mission Control
  * Real-time database with subscriptions
- * 
- * ═══════════════════════════════════════════════════════════════════════════
- * ⚠️  CRITICAL: DEPLOYMENT URL - DO NOT CHANGE  ⚠️
- * ═══════════════════════════════════════════════════════════════════════════
- * 
- * Production deployment: quick-whale-641
- * 
- * The .env.local file MUST also use this same deployment:
- *   CONVEX_DEPLOYMENT=prod:quick-whale-641
- *   CONVEX_URL=https://quick-whale-641.convex.cloud
- * 
- * If CLI (.env.local) and frontend (this file) point to different deployments,
- * agent status updates will go to one DB while dashboard reads from another.
- * 
- * THIS HAS CAUSED 3+ PRODUCTION OUTAGES (2026-02-04).
- * 
- * To validate: cd ~/clawd/projects/abbe-command-center && ./scripts/validate-deployment.sh
- * To fix:      cd ~/clawd/projects/abbe-command-center && ./scripts/fix-deployment.sh
- * ═══════════════════════════════════════════════════════════════════════════
  */
 (() => {
-  // ⚠️ DO NOT CHANGE - must match .env.local CONVEX_URL
-  const CONVEX_URL = "https://quick-whale-641.convex.cloud";
+  const CONVEX_URL = "https://aromatic-trout-929.convex.cloud";
   
   let client = null;
   let listeners = new Map();
