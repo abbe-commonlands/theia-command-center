@@ -1,8 +1,19 @@
 /**
  * Convex Client for Mission Control
  * Real-time database with subscriptions
+ * 
+ * ╔══════════════════════════════════════════════════════════════════╗
+ * ║  ⚠️  CRITICAL: CONVEX_URL MUST BE quick-whale-641               ║
+ * ║                                                                  ║
+ * ║  DO NOT change to aromatic-trout-929 (that's the dev DB)        ║
+ * ║  This has caused 4+ production outages.                          ║
+ * ║                                                                  ║
+ * ║  Production: https://quick-whale-641.convex.cloud               ║
+ * ║  Dev (NEVER USE): aromatic-trout-929                            ║
+ * ╚══════════════════════════════════════════════════════════════════╝
  */
 (() => {
+  // 🔒 LOCKED - DO NOT CHANGE - Production Convex deployment
   const CONVEX_URL = "https://quick-whale-641.convex.cloud";
   
   let client = null;
