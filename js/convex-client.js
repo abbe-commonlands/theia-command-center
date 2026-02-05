@@ -3,7 +3,7 @@
  * Real-time database with subscriptions
  */
 (() => {
-  const CONVEX_URL = "https://aromatic-trout-929.convex.cloud";
+  const CONVEX_URL = "https://quick-whale-641.convex.cloud";
   
   let client = null;
   let listeners = new Map();
@@ -218,6 +218,17 @@
     
     async listByAgent(agentId) {
       return await query("activities:listByAgent", { agentId });
+    },
+    
+    async create(activity) {
+      return await mutate("activities:create", {
+        type: activity.type || 'message_sent',
+        agentName: activity.agentName || activity.agent_id,
+        taskId: activity.taskId,
+        taskTitle: activity.taskTitle,
+        message: activity.message || '',
+        metadata: activity.metadata,
+      });
     },
 
     onChange(callback) {
