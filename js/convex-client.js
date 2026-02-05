@@ -236,10 +236,20 @@
     
     async create(comment) {
       // Map from comment format to message format
+      // Note: Abbe's session is agent:main:main, others are agent:name:main
+      // Max doesn't have an agent, so use Abbe's session
+      const agentName = comment.fromAgent?.toLowerCase() || 'main';
+      let sessionKey;
+      if (agentName === 'abbe' || agentName === 'max') {
+        sessionKey = 'agent:main:main';
+      } else {
+        sessionKey = `agent:${agentName}:main`;
+      }
+      
       return await mutate("messages:create", {
         taskId: comment.taskId,
         content: comment.content,
-        agentSession: `agent:${comment.fromAgent?.toLowerCase() || 'main'}:main`,
+        agentSession: sessionKey,
       });
     },
 
