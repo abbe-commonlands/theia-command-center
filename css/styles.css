@@ -1472,6 +1472,9 @@ body {
 .comment-content {
   color: var(--text-secondary);
   line-height: 1.6;
+  white-space: pre-wrap;
+  word-wrap: break-word;
+  overflow-wrap: break-word;
 }
 
 .comment-content .mention {

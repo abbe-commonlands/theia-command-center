@@ -226,8 +226,21 @@
       return await query("messages:list", {});
     },
     
+    async listByTask(args) {
+      return await query("messages:listByTask", args);
+    },
+    
     async add(message) {
       return await mutate("messages:send", message);
+    },
+    
+    async create(comment) {
+      // Map from comment format to message format
+      return await mutate("messages:create", {
+        taskId: comment.taskId,
+        content: comment.content,
+        agentSession: `agent:${comment.fromAgent?.toLowerCase() || 'main'}:main`,
+      });
     },
 
     onChange(callback) {
