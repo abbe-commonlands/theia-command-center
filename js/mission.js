@@ -442,11 +442,17 @@
       
       if (result) {
         showToast(`Task moved to ${STATUS_LABELS[newStatus]}`, "success");
+        // Force refresh after short delay to ensure backend processed
+        setTimeout(async () => {
+          await loadTasks();
+          await loadAgents();
+          renderKanban();
+        }, 500);
       } else {
         showToast("Update may have failed - please refresh", "warning");
       }
       
-      // Always refresh to ensure UI is in sync
+      // Immediate refresh
       await loadTasks();
     } catch (err) {
       console.error("Failed to update task:", err);
