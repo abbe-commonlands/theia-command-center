@@ -162,14 +162,19 @@
     },
     
     async update(id, updates) {
+      console.log("tasks.update called with:", { id, updates });
       // Route to appropriate mutation based on what's being updated
       if (updates.status !== undefined) {
-        return await mutate("tasks:updateStatus", { 
+        const args = { 
           id, 
           status: updates.status,
           agentSession: updates.agentSession,
           notes: updates.notes 
-        });
+        };
+        console.log("Calling tasks:updateStatus with:", args);
+        const result = await mutate("tasks:updateStatus", args);
+        console.log("tasks:updateStatus result:", result);
+        return result;
       }
       if (updates.priority !== undefined) {
         return await mutate("tasks:updatePriority", { id, priority: updates.priority });

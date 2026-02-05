@@ -436,16 +436,21 @@
     
     try {
       const db = getDB();
-      await db.tasks.update(taskId, { status: newStatus });
-      showToast(`Task moved to ${STATUS_LABELS[newStatus]}`, "success");
+      console.log("Updating task:", taskId, "to status:", newStatus);
+      const result = await db.tasks.update(taskId, { status: newStatus });
+      console.log("Update result:", result);
       
-      // If not using real-time, refresh manually
-      if (!useConvex) {
-        await loadTasks();
+      if (result) {
+        showToast(`Task moved to ${STATUS_LABELS[newStatus]}`, "success");
+      } else {
+        showToast("Update may have failed - please refresh", "warning");
       }
+      
+      // Always refresh to ensure UI is in sync
+      await loadTasks();
     } catch (err) {
       console.error("Failed to update task:", err);
-      showToast("Failed to move task", "error");
+      showToast("Failed to move task: " + (err.message || "Unknown error"), "error");
     }
   }
 
