@@ -1,17 +1,16 @@
 // Skills Registry - Scans actual agent workspaces for skills
 
 const SKILLS_CONFIG = {
-  sharedPath: '~/.clawdbot/skills/',
-  globalSkillsPath: '/usr/local/lib/node_modules/clawdbot/skills/',
+  sharedPath: '~/.openclaw/skills/',
+  globalSkillsPath: '~/openclaw/skills/',
   agents: [
-    { id: 'abbe', name: 'Abbe', emoji: '🧠', workspace: '/Users/maxbot1/clawd', color: '#00D4FF', model: 'opus', discordChannel: '#general' },
-    { id: 'seidel', name: 'Seidel', emoji: '💼', workspace: '/Users/maxbot1/clawd-seidel', color: '#22C55E', model: 'sonnet', discordChannel: '#sales' },
-    { id: 'iris', name: 'Iris', emoji: '🎨', workspace: '/Users/maxbot1/clawd-iris', color: '#A855F7', model: 'sonnet', discordChannel: '#marketing' },
-    { id: 'theia', name: 'Theia', emoji: '🔬', workspace: '/Users/maxbot1/clawd-theia', color: '#EAB308', model: 'sonnet', discordChannel: null },
-    { id: 'photon', name: 'Photon', emoji: '⚙️', workspace: '/Users/maxbot1/clawd-photon', color: '#F97316', model: 'sonnet', discordChannel: '#operations' },
-    { id: 'zernike', name: 'Zernike', emoji: '💻', workspace: '/Users/maxbot1/clawd-zernike', color: '#EC4899', model: 'codex', discordChannel: '#dev' },
-    { id: 'kanban', name: 'Kanban', emoji: '📦', workspace: '/Users/maxbot1/clawd-kanban', color: '#14B8A6', model: 'sonnet', discordChannel: '#warehouse' },
-    { id: 'deming', name: 'Deming', emoji: '✅', workspace: '/Users/maxbot1/clawd-deming', color: '#6366F1', model: 'sonnet', discordChannel: '#quality' },
+    { id: 'abbe', name: 'Abbe', emoji: '🧠', workspace: '~/clawd/clawd', color: '#00D4FF', model: 'opus', channel: 'telegram' },
+    { id: 'seidel', name: 'Seidel', emoji: '🎯', workspace: '~/clawd/clawd-seidel', color: '#22C55E', model: 'sonnet', channel: 'telegram' },
+    { id: 'iris', name: 'Iris', emoji: '📡', workspace: '~/clawd/clawd-iris', color: '#A855F7', model: 'sonnet', channel: 'telegram' },
+    { id: 'zernike', name: 'Zernike', emoji: '💻', workspace: '~/clawd/clawd-zernike', color: '#EC4899', model: 'codex', channel: 'telegram' },
+    { id: 'kanban', name: 'Kanban', emoji: '📦', workspace: '~/clawd/clawd-kanban', color: '#14B8A6', model: 'sonnet', channel: 'telegram' },
+    { id: 'deming', name: 'Deming', emoji: '✅', workspace: '~/clawd/clawd-deming', color: '#6366F1', model: 'sonnet', channel: 'telegram' },
+    { id: 'ernst', name: 'Ernst', emoji: '📧', workspace: '~/clawd/clawd-ernst', color: '#F59E0B', model: 'sonnet', channel: 'telegram' },
   ]
 };
 
@@ -96,12 +95,12 @@ function renderAgentSkills() {
       `<option value="${m.value}" ${agent.model === m.value ? 'selected' : ''}>${m.label}</option>`
     ).join('');
     
-    const discordBadge = agent.discordChannel 
-      ? `<span class="agent-discord-channel" style="background: #5865F220; color: #5865F2; font-size: 11px; padding: 2px 8px; border-radius: 4px; margin-left: 8px;">
-           <span style="opacity: 0.7;">Discord:</span> ${agent.discordChannel}
+    const channelBadge = agent.channel 
+      ? `<span style="background: rgba(0,212,255,0.1); color: var(--accent-cyan); font-size: 11px; padding: 2px 8px; border-radius: 4px; margin-left: 8px;">
+           ${agent.channel}
          </span>`
-      : `<span class="agent-discord-channel" style="background: var(--bg-elevated); color: var(--text-muted); font-size: 11px; padding: 2px 8px; border-radius: 4px; margin-left: 8px;">
-           No Discord binding
+      : `<span style="background: var(--bg-primary); color: var(--text-muted); font-size: 11px; padding: 2px 8px; border-radius: 4px; margin-left: 8px;">
+           No channel
          </span>`;
     
     return `
@@ -112,7 +111,7 @@ function renderAgentSkills() {
           <select class="agent-model-select input select" data-agent="${agent.id}" style="font-size: 12px; padding: 4px 8px; min-height: 28px; min-width: 140px; background: var(--bg-primary);">
             ${modelOptions}
           </select>
-          ${discordBadge}
+          ${channelBadge}
           <span class="agent-skill-count" style="background: ${agent.color}20; color: ${agent.color};">${skills.length} skill${skills.length !== 1 ? 's' : ''}</span>
         </div>
         ${skillsHtml}
@@ -381,43 +380,51 @@ function getSkillIcon(name) {
 }
 
 function useStaticSkillsData() {
-  // Static data from last known state - update via refresh
+  // Static data from installed skills — updated 2026-02-09
+  // Shared: ~/.openclaw/skills/  |  Bundled: ~/openclaw/skills/
   skillsData = {
     shared: [
-      { name: 'agent-protocol', description: 'Agent-to-agent communication', icon: '🔗' },
-      { name: 'discord', description: 'Discord integration', icon: '💬' },
-      { name: 'docx-skill', description: 'Create and edit Word documents', icon: '📄' },
-      { name: 'executing-plans', description: 'Execute implementation plans', icon: '📋' },
+      { name: 'agent-protocol', description: 'Agent-to-agent communication protocol', icon: '🔗' },
+      { name: 'backend-patterns', description: 'Backend architecture & API design patterns', icon: '🏗️' },
+      { name: 'coding-discipline', description: 'Rules to avoid subtle coding errors', icon: '🧠' },
+      { name: 'executing-plans', description: 'Execute implementation plans with checkpoints', icon: '📋' },
+      { name: 'frontend-design', description: 'Build production-grade UIs', icon: '🎨' },
+      { name: 'gitclassic', description: 'Fast GitHub browser for AI agents', icon: '🐙' },
       { name: 'humanizer', description: 'Remove AI writing patterns', icon: '✍️' },
       { name: 'jq-json-processor', description: 'Process JSON with jq', icon: '🔍' },
-      { name: 'mineru-pdf', description: 'Parse PDFs to Markdown', icon: '📑' },
+      { name: 'mineru-pdf', description: 'Parse PDFs to Markdown (OCR)', icon: '📑' },
+      { name: 'mission-control', description: 'Wake/sleep lifecycle reporting', icon: '📡' },
       { name: 'pptx-creator', description: 'Create PowerPoint presentations', icon: '📊' },
-      { name: 'task-system', description: 'Create, move, complete tasks', icon: '✅' },
+      { name: 'task-system', description: 'Create, move, complete tasks on board', icon: '✅' },
+      { name: 'ux-audit', description: 'Automated UX design audits', icon: '👁️' },
       { name: 'xlsx', description: 'Create and analyze Excel spreadsheets', icon: '📈' },
     ],
     perAgent: {
-      abbe: [
-        { name: 'backend-patterns', description: 'Backend architecture patterns', icon: '🏗️' },
-        { name: 'codex-orchestration', description: 'Orchestrate Codex CLI workers', icon: '🎭' },
-        { name: 'shopify-marketing-expert', description: 'E-commerce Shopify growth', icon: '🛒' },
-      ],
+      abbe: [],
       seidel: [],
-      iris: [
-        { name: 'marketing-mode', description: '23 marketing skills combined', icon: '📣' },
-        { name: 'marketing-skills', description: 'Marketing skill references', icon: '📣' },
-      ],
-      theia: [],
-      photon: [],
-      zernike: [
-        { name: 'backend-patterns', description: 'Backend architecture patterns', icon: '🏗️' },
-        { name: 'frontend-design', description: 'Build production-grade UIs', icon: '🎨' },
-        { name: 'geo-optimization', description: 'AI search visibility optimization', icon: '🔍' },
-        { name: 'vercel-react-best-practices', description: 'React/Next.js optimization', icon: '⚛️' },
-      ],
+      iris: [],
+      zernike: [],
       kanban: [],
       deming: [],
+      ernst: [],
     }
   };
+
+  // Also include bundled OpenClaw skills
+  const bundled = [
+    { name: '1password', description: '1Password CLI integration', icon: '🔐' },
+    { name: 'blogwatcher', description: 'Monitor blogs and RSS feeds', icon: '📰' },
+    { name: 'coding-agent', description: 'Run Codex/Claude Code agents', icon: '🤖' },
+    { name: 'github', description: 'GitHub CLI (gh) integration', icon: '🐙' },
+    { name: 'gog', description: 'Google Workspace (Gmail, Calendar, Drive)', icon: '📧' },
+    { name: 'healthcheck', description: 'Host security hardening', icon: '🛡️' },
+    { name: 'skill-creator', description: 'Create or update agent skills', icon: '🛠️' },
+    { name: 'summarize', description: 'Summarize URLs, podcasts, files', icon: '📋' },
+    { name: 'tmux', description: 'Remote-control tmux sessions', icon: '🖥️' },
+    { name: 'video-frames', description: 'Extract frames from videos', icon: '🎬' },
+    { name: 'weather', description: 'Current weather and forecasts', icon: '🌤️' },
+  ];
+  skillsData.shared.push(...bundled);
 }
 
 function showToast(message, type = 'info') {
