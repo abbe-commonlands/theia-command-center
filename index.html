@@ -96,92 +96,108 @@
         role="tabpanel"
         aria-labelledby="mission-tab"
       >
-        <!-- Quick Stats Dashboard -->
-        <div class="stats-row" style="display: grid; grid-template-columns: repeat(auto-fit, minmax(180px, 1fr)); gap: var(--space-md); margin-bottom: var(--space-md);">
-          <div class="stat-card">
-            <div class="stat-icon">✅</div>
-            <div class="stat-content">
-              <div class="stat-value" id="stat-completed-today">0</div>
-              <div class="stat-label">Completed Today</div>
+        <div class="mission-layout">
+          <!-- Left Sidebar: Compact Squad Status -->
+          <aside class="mission-sidebar-left">
+            <div class="sidebar-header">
+              <h3 class="sidebar-title">👥 Squad</h3>
+              <div class="live-indicator" id="live-indicator">LIVE</div>
+            </div>
+            <div id="agent-sidebar" class="agent-sidebar">
+              <!-- Populated by JS: renderAgentsCompact() -->
+            </div>
+          </aside>
+
+          <!-- Center: Main Content -->
+          <div class="mission-main">
+            <!-- Quick Stats Dashboard -->
+            <div class="stats-row" style="display: grid; grid-template-columns: repeat(auto-fit, minmax(180px, 1fr)); gap: var(--space-md); margin-bottom: var(--space-md);">
+              <div class="stat-card">
+                <div class="stat-icon">✅</div>
+                <div class="stat-content">
+                  <div class="stat-value" id="stat-completed-today">0</div>
+                  <div class="stat-label">Completed Today</div>
+                </div>
+              </div>
+              <div class="stat-card">
+                <div class="stat-icon">🔄</div>
+                <div class="stat-content">
+                  <div class="stat-value" id="stat-in-progress">0</div>
+                  <div class="stat-label">In Progress</div>
+                </div>
+              </div>
+              <div class="stat-card">
+                <div class="stat-icon">👀</div>
+                <div class="stat-content">
+                  <div class="stat-value" id="stat-in-review">0</div>
+                  <div class="stat-label">Pending Review</div>
+                </div>
+              </div>
+              <div class="stat-card">
+                <div class="stat-icon">🚨</div>
+                <div class="stat-content">
+                  <div class="stat-value" id="stat-blocked">0</div>
+                  <div class="stat-label">Blocked</div>
+                </div>
+              </div>
+              <div class="stat-card">
+                <div class="stat-icon">🤖</div>
+                <div class="stat-content">
+                  <div class="stat-value" id="stat-active-agents">0</div>
+                  <div class="stat-label">Active Agents</div>
+                </div>
+              </div>
+            </div>
+
+            <!-- Task Board -->
+            <div class="card">
+              <div class="card-header">
+                <div>
+                  <h2 class="card-title">📋 Task Board</h2>
+                  <p class="card-subtitle">Drag tasks between columns or click to expand details</p>
+                </div>
+                <div class="flex gap-sm">
+                  <button class="btn btn-secondary" id="refresh-tasks-btn">
+                    <span>🔄</span> Refresh
+                  </button>
+                  <button class="btn btn-primary" id="new-task-btn">
+                    <span>+</span> New Task
+                  </button>
+                </div>
+              </div>
+              <div id="kanban-board" class="kanban-board">
+                <!-- Populated by JS -->
+              </div>
+            </div>
+
+            <!-- Recent Completions -->
+            <div class="card" style="margin-top: var(--space-md);">
+              <div class="card-header">
+                <div>
+                  <h2 class="card-title">🎉 Recently Completed</h2>
+                  <p class="card-subtitle">Tasks finished in the last 24 hours</p>
+                </div>
+              </div>
+              <div id="recent-completions" class="recent-completions">
+                <p style="color: var(--text-muted); padding: var(--space-md);">No recent completions</p>
+              </div>
             </div>
           </div>
-          <div class="stat-card">
-            <div class="stat-icon">🔄</div>
-            <div class="stat-content">
-              <div class="stat-value" id="stat-in-progress">0</div>
-              <div class="stat-label">In Progress</div>
+
+          <!-- Right Sidebar: Compact Activity Feed -->
+          <aside class="mission-sidebar-right">
+            <div class="sidebar-header">
+              <h3 class="sidebar-title">📰 Activity</h3>
             </div>
-          </div>
-          <div class="stat-card">
-            <div class="stat-icon">👀</div>
-            <div class="stat-content">
-              <div class="stat-value" id="stat-in-review">0</div>
-              <div class="stat-label">Pending Review</div>
+            <div id="activity-sidebar" class="activity-feed-compact">
+              <!-- Populated by JS: renderActivityCompact() -->
+              <div class="activity-compact-empty">No activity yet</div>
             </div>
-          </div>
-          <div class="stat-card">
-            <div class="stat-icon">🚨</div>
-            <div class="stat-content">
-              <div class="stat-value" id="stat-blocked">0</div>
-              <div class="stat-label">Blocked</div>
-            </div>
-          </div>
-          <div class="stat-card">
-            <div class="stat-icon">🤖</div>
-            <div class="stat-content">
-              <div class="stat-value" id="stat-active-agents">0</div>
-              <div class="stat-label">Active Agents</div>
-            </div>
-          </div>
+          </aside>
         </div>
 
-        <!-- Agent Status Row -->
-        <div class="card" style="margin-bottom: var(--space-md);">
-          <div class="card-header">
-            <div>
-              <h2 class="card-title">👥 Squad Status</h2>
-              <p class="card-subtitle">Click an agent to see their details and current work</p>
-            </div>
-            <div class="live-indicator" id="live-indicator">LIVE</div>
-          </div>
-          <div id="agent-grid" class="agent-grid">
-            <!-- Populated by JS -->
-          </div>
-        </div>
-
-        <!-- Task Board -->
-        <div class="card">
-          <div class="card-header">
-            <div>
-              <h2 class="card-title">📋 Task Board</h2>
-              <p class="card-subtitle">Drag tasks between columns or click to expand details</p>
-            </div>
-            <div class="flex gap-sm">
-              <button class="btn btn-secondary" id="refresh-tasks-btn">
-                <span>🔄</span> Refresh
-              </button>
-              <button class="btn btn-primary" id="new-task-btn">
-                <span>+</span> New Task
-              </button>
-            </div>
-          </div>
-          <div id="kanban-board" class="kanban-board">
-            <!-- Populated by JS -->
-          </div>
-        </div>
-
-        <!-- Recent Completions -->
-        <div class="card" style="margin-top: var(--space-md);">
-          <div class="card-header">
-            <div>
-              <h2 class="card-title">🎉 Recently Completed</h2>
-              <p class="card-subtitle">Tasks finished in the last 24 hours</p>
-            </div>
-          </div>
-          <div id="recent-completions" class="recent-completions">
-            <p style="color: var(--text-muted); padding: var(--space-md);">No recent completions</p>
-          </div>
-        </div>
+        <!-- Hidden: keep original agent-grid for modal usage -->
+        <div id="agent-grid" class="agent-grid" style="display: none;"></div>
       </section>
 
       <!-- Documents Screen -->

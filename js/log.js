@@ -190,6 +190,11 @@ function renderActivityLog() {
   
   const grouped = groupByDate(filtered);
   
+  // Update compact sidebar if Mission is available
+  if (window.Mission && window.Mission.renderActivityCompact) {
+    window.Mission.renderActivityCompact();
+  }
+
   container.innerHTML = `
     <div class="activity-feed-editorial">
       ${useConvex ? `
@@ -396,4 +401,5 @@ window.ActivityLog = {
   render: renderActivityLog,
   isRealtime: () => useConvex,
   toggleCompletions: toggleCompletionsFilter,
+  getData: () => activityData,
 };

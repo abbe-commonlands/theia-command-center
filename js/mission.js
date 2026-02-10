@@ -72,6 +72,16 @@
       updateTaskCount();
     });
 
+    // Subscribe to activities for compact sidebar
+    if (window.Convex.activities && window.Convex.activities.onChange) {
+      window.Convex.activities.onChange(() => {
+        renderActivityCompact();
+      });
+    }
+    window.addEventListener("convex:activities", () => {
+      renderActivityCompact();
+    });
+
     // Also listen for custom events (backup)
     window.addEventListener("convex:agents", (e) => {
       cachedAgents = e.detail || [];
@@ -102,10 +112,95 @@
     }
   }
 
+  function renderAgentsCompact() {
+    const container = $("#agent-sidebar");
+    if (!container) return;
+    container.innerHTML = "";
+
+    cachedAgents.forEach((agent) => {
+      const card = createEl("div", "agent-card-compact");
+      card.dataset.id = agent._id || agent.id;
+
+      const lastActive = agent.lastActiveAt ? formatTimeAgo(agent.lastActiveAt) : "never";
+      const contextPercent = agent.contextPercent || 0;
+      const contextColor = contextPercent >= 80 ? "var(--accent-red)" :
+                           contextPercent >= 50 ? "var(--accent-amber)" :
+                           "var(--accent-green)";
+      const contextBar = agent.contextUsed ? `
+        <div class="agent-compact-context">
+          <div class="agent-compact-context-bar" style="width:${contextPercent}%;background:${contextColor};"></div>
+        </div>` : "";
+
+      card.innerHTML = `
+        <span class="agent-compact-emoji">${agent.emoji || "🤖"}</span>
+        <div class="agent-compact-info">
+          <div class="agent-compact-name">${agent.name}</div>
+          <div class="agent-compact-status">
+            <span class="status-dot ${agent.status || "idle"}"></span>
+            <span>${agent.status || "idle"}</span>
+            <span>· ${lastActive}</span>
+          </div>
+          ${contextBar}
+        </div>
+      `;
+
+      card.addEventListener("click", () => openAgentSession(agent));
+      container.appendChild(card);
+    });
+  }
+
+  function renderActivityCompact() {
+    const container = $("#activity-sidebar");
+    if (!container) return;
+
+    const data = (window.ActivityLog && window.ActivityLog.getData) ? window.ActivityLog.getData() : [];
+    const recent = data.slice(0, 20);
+
+    if (recent.length === 0) {
+      container.innerHTML = '<div class="activity-compact-empty">No activity yet</div>';
+      return;
+    }
+
+    const EVENT_VERBS = {
+      task_created: "created",
+      task_assigned: "assigned",
+      task_moved: "moved",
+      task_completed: "completed",
+      task_verified: "verified",
+      task_rejected: "returned",
+      message_sent: "commented on",
+      document_created: "published",
+      agent_status_changed: "status →",
+      agent_message: "messaged",
+    };
+
+    const AGENT_ICONS = {
+      'Abbe': '🧠', 'Seidel': '💼', 'Iris': '🎨', 'Theia': '🔮',
+      'Photon': '📸', 'Zernike': '💻', 'Ernst': '✅', 'Kanban': '📋',
+      'Deming': '📊', 'Max': '👤',
+    };
+
+    container.innerHTML = recent.map(a => {
+      const name = a.agentName || a.agent_id || "unknown";
+      const icon = AGENT_ICONS[name] || "❓";
+      const verb = EVENT_VERBS[a.type] || a.type;
+      const title = a.taskTitle ? `"${escapeHtml(a.taskTitle.slice(0, 30))}"` : (a.message ? escapeHtml(a.message.slice(0, 30)) : "");
+      const ts = a._creationTime || (a.created_at ? a.created_at * 1000 : Date.now());
+      const diffMs = Date.now() - ts;
+      const mins = Math.floor(diffMs / 60000);
+      const time = mins < 1 ? "now" : mins < 60 ? `${mins}m` : `${Math.floor(mins / 60)}h`;
+
+      return `<div class="activity-compact-item">
+        ${icon} <span class="activity-compact-agent">${escapeHtml(name)}</span> ${verb} <span class="activity-compact-task">${title}</span> <span class="activity-compact-time">• ${time}</span>
+      </div>`;
+    }).join("");
+  }
+
   function renderAgents() {
     const container = $("#agent-grid");
     if (!container) return;
     container.innerHTML = "";
+    renderAgentsCompact();
 
     cachedAgents.forEach((agent) => {
       const card = createEl("div", "agent-card");
@@ -1001,6 +1096,7 @@
     // Initial data load
     await loadAgents();
     await loadTasks();
+    renderActivityCompact();
     
     // Show connection status
     if (useConvex) {
@@ -1011,6 +1107,7 @@
   async function refresh() {
     await loadTasks();
     await loadAgents();
+    renderActivityCompact();
   }
 
   window.Mission = {
@@ -1019,5 +1116,6 @@
     openTaskModal,
     showToast,
     isRealtime: () => useConvex,
+    renderActivityCompact,
   };
 })();
