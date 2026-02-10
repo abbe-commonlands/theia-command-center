@@ -195,6 +195,11 @@ body {
   width: 100%;
 }
 
+/* Mission Control needs full width for 3-column layout */
+.main-content:has(.screen[data-screen="mission"].active) {
+  max-width: none;
+}
+
 /* Screen */
 .screen {
   display: none;
@@ -2115,7 +2120,14 @@ body {
   display: grid;
   grid-template-columns: 220px 1fr 280px;
   gap: var(--space-md);
+  width: 100%;
 }
+
+.mission-main {
+  min-width: 0; /* Prevent grid blowout */
+}
+
+/* (full-width handled by :has() on .main-content) */
 
 @media (max-width: 1199px) {
   .mission-layout {
