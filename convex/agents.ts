@@ -246,3 +246,12 @@ export const seed = mutation({
     return { seeded: seededCount, total: agents.length };
   },
 });
+
+// Remove an agent record
+export const remove = mutation({
+  args: { id: v.id("agents") },
+  handler: async (ctx, args) => {
+    await ctx.db.delete(args.id);
+    return { removed: true };
+  },
+});
