@@ -401,8 +401,16 @@ function useStaticSkillsData() {
     ],
     perAgent: {
       abbe: [],
-      seidel: [],
-      iris: [],
+      seidel: [
+        { name: 'apollo-enrichment', description: 'Apollo.io contact/company enrichment for sales prospecting', icon: '🎯' },
+        { name: 'firecrawler', description: 'Web scraping & competitor intelligence via Firecrawl', icon: '🔥' },
+        { name: 'phantombuster', description: 'LinkedIn automation & lead generation', icon: '👻' },
+      ],
+      iris: [
+        { name: 'geo-optimization', description: 'GEO audit, schema markup, llms.txt, AI search monitoring', icon: '🔍' },
+        { name: 'marketing-mode', description: 'B2B technical marketing playbooks & content strategy', icon: '📣' },
+        { name: 'google-analytics', description: 'GA4 + Google Search Console queries & reporting', icon: '📊' },
+      ],
       zernike: [],
       kanban: [],
       deming: [],
