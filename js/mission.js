@@ -149,9 +149,17 @@
     });
   }
 
-  function renderActivityCompact() {
+  async function renderActivityCompact() {
     const container = $("#activity-sidebar");
     if (!container) return;
+
+    // Ensure activities are loaded (ActivityLog may not have initialized yet)
+    if (window.ActivityLog && window.ActivityLog.getData) {
+      const existing = window.ActivityLog.getData();
+      if (existing.length === 0 && window.ActivityLog.load) {
+        await window.ActivityLog.load();
+      }
+    }
 
     const data = (window.ActivityLog && window.ActivityLog.getData) ? window.ActivityLog.getData() : [];
     const recent = data.slice(0, 20);
