@@ -177,11 +177,14 @@
     }
 
     container.innerHTML = filtered.map(doc => {
+      const docId = doc._id || doc.id;
       const typeInfo = DOCUMENT_TYPES[doc.type] || DOCUMENT_TYPES.note;
       const preview = doc.content?.replace(/[#*`\-]/g, '').slice(0, 100) || '';
+      const authorName = doc.createdByName || doc.createdBy || 'Unknown';
+      const timestamp = doc._creationTime || doc.createdAt || Date.now();
       
       return `
-        <div class="document-card" data-id="${doc.id}">
+        <div class="document-card" data-id="${docId}">
           <div class="document-card-header">
             <span class="document-icon">${typeInfo.icon}</span>
             <span class="document-title">${escapeHtml(doc.title)}</span>
@@ -189,18 +192,18 @@
           </div>
           <div class="document-preview">${escapeHtml(preview)}...</div>
           <div class="document-meta">
-            <span>By ${escapeHtml(doc.createdBy)}</span>
-            <span>${formatDate(doc.createdAt)}</span>
+            <span>By ${escapeHtml(authorName)}</span>
+            <span>${formatDate(timestamp)}</span>
           </div>
         </div>
       `;
     }).join('');
 
-    // Bind click handlers
+    // Bind click handlers — match by _id (Convex) or id (local)
     container.querySelectorAll('.document-card').forEach(card => {
       card.addEventListener('click', () => {
         const id = card.dataset.id;
-        const doc = documents.find(d => d.id === id);
+        const doc = documents.find(d => (d._id || d.id) === id);
         if (doc) openViewer(doc);
       });
     });
@@ -242,9 +245,12 @@
     }
 
     const viewerModal = $('#doc-viewer-modal');
+    const authorName = doc.createdByName || doc.createdBy || 'Unknown';
+    const timestamp = doc._creationTime || doc.createdAt || Date.now();
+    
     $('#doc-viewer-title').innerHTML = `${typeInfo.icon} ${escapeHtml(doc.title)}`;
     $('#doc-viewer-content').innerHTML = renderMarkdown(doc.content);
-    $('#doc-viewer-meta').textContent = `Created by ${doc.createdBy} on ${formatDate(doc.createdAt)}`;
+    $('#doc-viewer-meta').textContent = `Created by ${authorName} on ${formatDate(timestamp)}`;
     
     viewerModal.classList.add('open');
   }
@@ -306,10 +312,10 @@ Write your content here...
                 <select id="doc-author" class="input select">
                   <option value="Abbe">🧠 Abbe</option>
                   <option value="Zernike">💻 Zernike</option>
-                  <option value="Seidel">🔧 Seidel</option>
-                  <option value="Iris">🎨 Iris</option>
-                  <option value="Photon">📸 Photon</option>
-                  <option value="Deming">📊 Deming</option>
+                  <option value="Seidel">🎯 Seidel</option>
+                  <option value="Iris">📡 Iris</option>
+                  <option value="Kanban">📦 Kanban</option>
+                  <option value="Deming">✅ Deming</option>
                   <option value="Max">👤 Max</option>
                 </select>
               </div>
@@ -389,6 +395,7 @@ Write your content here...
     openCreateModal,
     closeCreateModal,
     getAll: () => documents,
+    getById: (id) => documents.find(d => (d._id || d.id) === id),
     getByTask: (taskId) => documents.filter(d => d.taskId === taskId),
   };
 })();
