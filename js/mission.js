@@ -26,10 +26,12 @@
   let draggedTask = null;
   let useConvex = false;
 
+  /** @param {string} selector - CSS selector @returns {HTMLElement|null} */
   function $(selector) {
     return document.querySelector(selector);
   }
 
+  /** Create a DOM element with optional class and innerHTML. */
   function createEl(tag, className, html) {
     const el = document.createElement(tag);
     if (className) el.className = className;
@@ -37,13 +39,14 @@
     return el;
   }
 
+  /** Escape HTML to prevent XSS. */
   function escapeHtml(text) {
     const div = document.createElement("div");
     div.textContent = text || "";
     return div.innerHTML;
   }
 
-  // Get the database interface (Convex or IndexedDB)
+  /** Get the active database interface (Convex when available, otherwise IndexedDB). */
   function getDB() {
     if (useConvex && window.Convex) {
       return window.Convex;
@@ -53,6 +56,7 @@
 
   // ============ Real-Time Subscriptions ============
 
+  /** Set up Convex real-time subscriptions for agents, tasks, and activities. */
   function setupRealtimeSubscriptions() {
     if (!window.Convex) return;
 
@@ -74,11 +78,18 @@
 
     // Subscribe to activities for compact sidebar
     if (window.Convex.activities && window.Convex.activities.onChange) {
-      window.Convex.activities.onChange(() => {
+      window.Convex.activities.onChange((activities) => {
+        // Update ActivityLog's internal data so sidebar reads fresh data
+        if (window.ActivityLog && window.ActivityLog.setData) {
+          window.ActivityLog.setData(activities);
+        }
         renderActivityCompact();
       });
     }
-    window.addEventListener("convex:activities", () => {
+    window.addEventListener("convex:activities", (e) => {
+      if (window.ActivityLog && window.ActivityLog.setData) {
+        window.ActivityLog.setData(e.detail || []);
+      }
       renderActivityCompact();
     });
 
@@ -98,6 +109,7 @@
 
   // ============ Agents ============
 
+  /** Load all agents from the database and render them. */
   async function loadAgents() {
     const db = getDB();
     if (!db) return;
@@ -112,6 +124,7 @@
     }
   }
 
+  /** Render the compact agent sidebar cards. */
   function renderAgentsCompact() {
     const container = $("#agent-sidebar");
     if (!container) return;
@@ -149,6 +162,7 @@
     });
   }
 
+  /** Render the compact activity feed in the sidebar using ActivityLog data. */
   async function renderActivityCompact() {
     const container = $("#activity-sidebar");
     if (!container) return;
@@ -182,11 +196,17 @@
       agent_message: "messaged",
     };
 
-    const AGENT_ICONS = {
-      'Abbe': '🧠', 'Seidel': '💼', 'Iris': '🎨', 'Theia': '🔮',
-      'Photon': '📸', 'Zernike': '💻', 'Ernst': '✅', 'Kanban': '📋',
-      'Deming': '📊', 'Max': '👤',
+    // Prefer cached agent emojis; fall back to hardcoded map
+    const AGENT_ICONS_FALLBACK = {
+      'Abbe': '🧠', 'Seidel': '🎯', 'Iris': '📡',
+      'Zernike': '💻', 'Ernst': '📋', 'Kanban': '📦',
+      'Deming': '✅', 'Max': '👤',
     };
+    // Build icon lookup from cachedAgents when available
+    const AGENT_ICONS = {};
+    cachedAgents.forEach(a => { AGENT_ICONS[a.name] = a.emoji || AGENT_ICONS_FALLBACK[a.name] || '❓'; });
+    // Merge fallback for agents not yet in cache
+    Object.keys(AGENT_ICONS_FALLBACK).forEach(k => { if (!AGENT_ICONS[k]) AGENT_ICONS[k] = AGENT_ICONS_FALLBACK[k]; });
 
     container.innerHTML = recent.map(a => {
       const name = a.agentName || a.agent_id || "unknown";
@@ -204,6 +224,7 @@
     }).join("");
   }
 
+  /** Render full agent cards in the grid and compact sidebar. */
   function renderAgents() {
     const container = $("#agent-grid");
     if (!container) return;
@@ -299,6 +320,7 @@
     return new Date(timestamp).toLocaleDateString();
   }
 
+  /** Open a modal showing agent details and assigned tasks. */
   function openAgentSession(agent) {
     const modal = $("#task-modal");
     const title = $("#modal-title");
@@ -395,6 +417,7 @@
     modal.classList.add("open");
   }
 
+  /** Populate the assignee dropdown with cached agents. */
   function populateAssigneeSelect() {
     const select = $("#task-assignee");
     if (!select) return;
@@ -413,6 +436,7 @@
 
   // ============ Tasks ============
 
+  /** Load all tasks from the database and render the Kanban board. */
   async function loadTasks() {
     const db = getDB();
     if (!db) return;
@@ -427,6 +451,7 @@
     }
   }
 
+  /** Render the Kanban board columns and task cards. */
   function renderKanban() {
     const container = $("#kanban-board");
     if (!container) return;
@@ -465,6 +490,7 @@
     });
   }
 
+  /** Render a single draggable task card element. */
   function renderTaskCard(task) {
     const taskId = task._id || task.id;
     const assignees = cachedAgents.filter(a => 
@@ -1008,6 +1034,7 @@
 
   // ============ Toast ============
 
+  /** Display a temporary toast notification. */
   function showToast(message, type = "info") {
     const container = $("#toast-container");
     if (!container) return;
@@ -1032,6 +1059,7 @@
 
   // ============ Init ============
 
+  /** Bind UI event handlers (new task, refresh, modal close, etc.). */
   function bindEvents() {
     const newTaskBtn = $("#new-task-btn");
     if (newTaskBtn) {
@@ -1070,6 +1098,7 @@
     });
   }
 
+  /** Initialize Mission Control: Convex, subscriptions, agents, tasks. */
   async function init() {
     bindEvents();
     
@@ -1112,6 +1141,7 @@
     }
   }
 
+  /** Refresh all data (tasks, agents, activity sidebar). */
   async function refresh() {
     await loadTasks();
     await loadAgents();

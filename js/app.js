@@ -1,12 +1,18 @@
 (() => {
+  /** @returns {HTMLElement[]} All navigation tab buttons */
   function getButtons() {
     return Array.from(document.querySelectorAll("[data-tab]"));
   }
 
+  /** @returns {HTMLElement[]} All screen/tab content panels */
   function getScreens() {
     return Array.from(document.querySelectorAll("[data-screen]"));
   }
 
+  /**
+   * Switch the active tab/screen.
+   * @param {string} tabName - The data-tab/data-screen value to activate
+   */
   function setActiveTab(tabName) {
     const screens = getScreens();
     const buttons = getButtons();
@@ -23,6 +29,7 @@
     });
   }
 
+  /** Handle navigation button clicks; switches tab and triggers screen-specific init. */
   function onNavClick(event) {
     const button = event.currentTarget;
     if (!button) return;
@@ -51,12 +58,14 @@
     }
   }
 
+  /** Bind click handlers to all navigation buttons. */
   function bindNavEvents() {
     getButtons().forEach((button) => {
       button.addEventListener("click", onNavClick);
     });
   }
 
+  /** Initialize the app: DB, navigation, Mission Control, ActivityLog, and Notifications. */
   async function init() {
     // Initialize database
     if (window.DB && typeof window.DB.init === "function") {
@@ -71,9 +80,15 @@
     // Bind navigation
     bindNavEvents();
 
-    // Initialize Mission Control
+    // Initialize Mission Control (also initializes Convex)
     if (window.Mission) {
-      window.Mission.init();
+      await window.Mission.init();
+    }
+
+    // Initialize ActivityLog AFTER Mission.init() so Convex is ready
+    if (window.ActivityLog && window.ActivityLog.init) {
+      window.ActivityLog.init();
+      console.log("✓ ActivityLog initialized (post-Convex)");
     }
 
     // Initialize Notifications

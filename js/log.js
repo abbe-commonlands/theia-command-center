@@ -1,22 +1,25 @@
 /**
  * Activity Log - Newspaper Editorial Style
- * Real-time feed of agent activity
+ * Real-time feed of agent activity with Convex-backed persistence.
+ * 
+ * NOTE: Do NOT auto-init on DOMContentLoaded. Convex is not ready until
+ * Mission.init() completes. Instead, app.js calls ActivityLog.init() explicitly.
  */
 
+/** @type {Object<string, string>} Agent name → emoji icon mapping */
 const AGENT_ICONS = {
   'Abbe': '🧠',
-  'Seidel': '💼',
-  'Iris': '🎨',
-  'Theia': '🔮',
-  'Photon': '📸',
+  'Seidel': '🎯',
+  'Iris': '📡',
   'Zernike': '💻',
-  'Ernst': '✅',
-  'Kanban': '📋',
-  'Deming': '📊',
+  'Ernst': '📋',
+  'Kanban': '📦',
+  'Deming': '✅',
   'Max': '👤',
   'unknown': '❓'
 };
 
+/** @type {Object<string, {label: string, icon: string, verb: string}>} Event type metadata */
 const EVENT_TYPES = {
   task_created: { label: 'New Task', icon: '📝', verb: 'created a new task' },
   task_assigned: { label: 'Assignment', icon: '🎯', verb: 'was assigned to' },
@@ -33,16 +36,29 @@ const EVENT_TYPES = {
   heartbeat: { label: 'Heartbeat', icon: '💓', verb: 'checked in' },
 };
 
+/** @type {Array} Internal activity data cache */
 let activityData = [];
+/** @type {boolean} Whether we're using Convex for persistence */
 let useConvex = false;
+/** @type {boolean} Whether to filter to completions only */
 let filterCompletionsOnly = false;
 
+/**
+ * Escape HTML special characters to prevent XSS.
+ * @param {string} text - Raw text to escape
+ * @returns {string} HTML-safe string
+ */
 function escapeHtml(text) {
   const div = document.createElement('div');
   div.textContent = text || '';
   return div.innerHTML;
 }
 
+/**
+ * Format a timestamp into a human-readable time string (e.g. "3:45 PM").
+ * @param {number} timestamp - Unix timestamp in milliseconds
+ * @returns {string} Formatted time
+ */
 function formatTime(timestamp) {
   const date = new Date(timestamp);
   return date.toLocaleTimeString('en-US', { 
@@ -52,6 +68,11 @@ function formatTime(timestamp) {
   });
 }
 
+/**
+ * Format a timestamp into a date header string (e.g. "Today", "Yesterday", or full date).
+ * @param {number} timestamp - Unix timestamp in milliseconds
+ * @returns {string} Human-friendly date label
+ */
 function formatDateHeader(timestamp) {
   const date = new Date(timestamp);
   const now = new Date();
@@ -68,6 +89,11 @@ function formatDateHeader(timestamp) {
   });
 }
 
+/**
+ * Group activities by date, sorted descending.
+ * @param {Array} activities - Array of activity objects
+ * @returns {Array<{date: number, activities: Array}>} Grouped and sorted activities
+ */
 function groupByDate(activities) {
   const groups = {};
   
@@ -84,7 +110,6 @@ function groupByDate(activities) {
     groups[dateKey].activities.push(activity);
   });
   
-  // Sort groups by date descending, then activities within each group
   return Object.values(groups)
     .sort((a, b) => b.date - a.date)
     .map(group => ({
@@ -97,6 +122,10 @@ function groupByDate(activities) {
     }));
 }
 
+/**
+ * Load activity log from Convex (preferred) or localStorage fallback.
+ * Renders the log after loading.
+ */
 async function loadActivityLog() {
   try {
     if (window.Convex && window.Convex.isReady && window.Convex.isReady()) {
@@ -119,6 +148,10 @@ async function loadActivityLog() {
   }
 }
 
+/**
+ * Set up real-time Convex subscriptions for activity updates.
+ * Listens for both onChange callbacks and custom DOM events.
+ */
 function setupRealtimeActivities() {
   if (!window.Convex) return;
   
@@ -140,6 +173,10 @@ function setupRealtimeActivities() {
   });
 }
 
+/**
+ * Render the full activity log into the #activity-log container.
+ * Applies current filters (agent, type, completions-only).
+ */
 function renderActivityLog() {
   const container = document.getElementById('activity-log');
   if (!container) return;
@@ -149,7 +186,6 @@ function renderActivityLog() {
   
   let filtered = activityData;
   
-  // Completions only filter
   if (filterCompletionsOnly) {
     filtered = filtered.filter(a => 
       a.type === 'task_completed' || 
@@ -165,10 +201,8 @@ function renderActivityLog() {
     filtered = filtered.filter(a => a.type === filterType);
   }
   
-  // Update summary counts
   updateActivitySummary();
   
-  // Update badge
   const badge = document.getElementById('log-count');
   if (badge) {
     badge.textContent = activityData.length;
@@ -190,7 +224,6 @@ function renderActivityLog() {
   
   const grouped = groupByDate(filtered);
   
-  // Update compact sidebar if Mission is available
   if (window.Mission && window.Mission.renderActivityCompact) {
     window.Mission.renderActivityCompact();
   }
@@ -222,13 +255,11 @@ function renderActivityLog() {
             const timestamp = activity._creationTime || activity.created_at * 1000 || Date.now();
             const time = formatTime(timestamp);
             
-            // Parse metadata
             let metadata = activity.metadata;
             if (typeof metadata === 'string') {
               try { metadata = JSON.parse(metadata); } catch (e) { metadata = null; }
             }
             
-            // Build context section
             let context = '';
             if (metadata) {
               if (metadata.from && metadata.to) {
@@ -248,7 +279,6 @@ function renderActivityLog() {
               }
             }
             
-            // First entry of the day gets drop cap styling (via class)
             const isFirstOfDay = actIndex === 0;
             
             return `
@@ -274,6 +304,10 @@ function renderActivityLog() {
   `;
 }
 
+/**
+ * Add a new activity entry. Persists to localStorage and optionally Convex.
+ * @param {Object} activity - Activity object with type, agentName, etc.
+ */
 function addActivity(activity) {
   const newActivity = {
     id: `act_${Date.now()}`,
@@ -283,10 +317,8 @@ function addActivity(activity) {
   
   activityData.unshift(newActivity);
   
-  // Persist to localStorage as backup
   localStorage.setItem('activities', JSON.stringify(activityData.slice(0, 500)));
   
-  // If Convex available, also save there
   if (window.Convex && window.Convex.isReady && window.Convex.isReady()) {
     window.Convex.activities.create(newActivity).catch(err => {
       console.warn('Failed to save activity to Convex:', err);
@@ -302,11 +334,17 @@ function addActivity(activity) {
   }
 }
 
+/**
+ * Alias for addActivity.
+ * @param {Object} activity - Activity object
+ */
 function log(activity) {
-  // Alias for addActivity
   addActivity(activity);
 }
 
+/**
+ * Clear all activity logs after user confirmation.
+ */
 function clearActivityLog() {
   if (confirm('Clear all activity logs?')) {
     activityData = [];
@@ -315,6 +353,9 @@ function clearActivityLog() {
   }
 }
 
+/**
+ * Populate the agent filter dropdown with known agents.
+ */
 function populateAgentFilter() {
   const select = document.getElementById('log-filter-agent');
   if (!select) return;
@@ -322,13 +363,11 @@ function populateAgentFilter() {
   const agents = [
     { name: 'Abbe', icon: '🧠' },
     { name: 'Zernike', icon: '💻' },
-    { name: 'Seidel', icon: '💼' },
-    { name: 'Iris', icon: '🎨' },
-    { name: 'Photon', icon: '📸' },
-    { name: 'Deming', icon: '📊' },
-    { name: 'Ernst', icon: '✅' },
-    { name: 'Theia', icon: '🔮' },
-    { name: 'Kanban', icon: '📋' },
+    { name: 'Seidel', icon: '🎯' },
+    { name: 'Iris', icon: '📡' },
+    { name: 'Deming', icon: '✅' },
+    { name: 'Ernst', icon: '📋' },
+    { name: 'Kanban', icon: '📦' },
   ];
   
   agents.forEach(agent => {
@@ -339,26 +378,9 @@ function populateAgentFilter() {
   });
 }
 
-// Initialize
-document.addEventListener('DOMContentLoaded', () => {
-  populateAgentFilter();
-  
-  if (window.Convex && window.Convex.isReady && window.Convex.isReady()) {
-    useConvex = true;
-    setupRealtimeActivities();
-    console.log("📋 Activity Log: Using Convex (real-time)");
-    loadActivityLog();
-  } else {
-    console.log("📋 Activity Log: Waiting for Convex initialization...");
-  }
-  
-  document.getElementById('refresh-log-btn')?.addEventListener('click', loadActivityLog);
-  document.getElementById('clear-log-btn')?.addEventListener('click', clearActivityLog);
-  document.getElementById('log-filter-agent')?.addEventListener('change', renderActivityLog);
-  document.getElementById('log-filter-type')?.addEventListener('change', renderActivityLog);
-  document.getElementById('filter-completions-btn')?.addEventListener('click', toggleCompletionsFilter);
-});
-
+/**
+ * Update the activity summary counters (today's events, verified, comments).
+ */
 function updateActivitySummary() {
   const today = new Date();
   today.setHours(0, 0, 0, 0);
@@ -381,6 +403,9 @@ function updateActivitySummary() {
   if (todayCommentsCount) todayCommentsCount.textContent = `${todayComments} messages`;
 }
 
+/**
+ * Toggle the completions-only filter and re-render.
+ */
 function toggleCompletionsFilter() {
   filterCompletionsOnly = !filterCompletionsOnly;
   
@@ -392,8 +417,41 @@ function toggleCompletionsFilter() {
   renderActivityLog();
 }
 
+/**
+ * Explicitly initialize the ActivityLog module.
+ * Must be called AFTER Convex is initialized (i.e., after Mission.init()).
+ */
+function initActivityLog() {
+  populateAgentFilter();
+  
+  if (window.Convex && window.Convex.isReady && window.Convex.isReady()) {
+    useConvex = true;
+    setupRealtimeActivities();
+    console.log("📋 Activity Log: Using Convex (real-time)");
+  } else {
+    console.log("📋 Activity Log: No Convex available, using localStorage");
+  }
+  
+  loadActivityLog();
+  
+  document.getElementById('refresh-log-btn')?.addEventListener('click', loadActivityLog);
+  document.getElementById('clear-log-btn')?.addEventListener('click', clearActivityLog);
+  document.getElementById('log-filter-agent')?.addEventListener('change', renderActivityLog);
+  document.getElementById('log-filter-type')?.addEventListener('change', renderActivityLog);
+  document.getElementById('filter-completions-btn')?.addEventListener('click', toggleCompletionsFilter);
+}
+
+/**
+ * Replace the internal activity data cache (used by real-time subscriptions).
+ * @param {Array} data - Fresh activity data from Convex
+ */
+function setData(data) {
+  activityData = data;
+}
+
 // Export
 window.ActivityLog = {
+  init: initActivityLog,
   add: addActivity,
   log: log,
   load: loadActivityLog,
@@ -402,4 +460,5 @@ window.ActivityLog = {
   isRealtime: () => useConvex,
   toggleCompletions: toggleCompletionsFilter,
   getData: () => activityData,
+  setData: setData,
 };
