@@ -36,7 +36,8 @@ export default defineSchema({
       v.literal("assigned"),
       v.literal("in_progress"),
       v.literal("review"),
-      v.literal("done")
+      v.literal("done"),
+      v.literal("blocked")
     ),
     priority: v.number(),       // 1-10 scale
     assigneeIds: v.array(v.id("agents")),
@@ -46,6 +47,7 @@ export default defineSchema({
     verifiedAt: v.optional(v.number()),
     deliverables: v.optional(v.string()),
     dueAt: v.optional(v.number()),
+    blockedReason: v.optional(v.string()),
   })
     .index("by_status", ["status"])
     .index("by_priority", ["priority"])

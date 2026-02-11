@@ -1122,8 +1122,7 @@
         
         setupRealtimeSubscriptions();
         
-        // Seed agents if needed (Convex will skip if already seeded)
-        await window.Convex.agents.seed();
+        // Agent records are managed by cron wake/sleep calls — no seeding needed
       } catch (err) {
         console.warn("Convex init failed, falling back to IndexedDB:", err);
         useConvex = false;
