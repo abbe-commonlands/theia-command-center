@@ -1,3 +1,4 @@
+// Force redeploy v2 - 2026-02-12
 import { mutation, query } from "./_generated/server";
 import { v } from "convex/values";
 
@@ -60,7 +61,7 @@ export const upsert = mutation({
 export const updateStatus = mutation({
   args: {
     sessionKey: v.string(),
-    status: v.union(v.literal("idle"), v.literal("active"), v.literal("blocked")),
+    status: v.union(v.literal("idle"), v.literal("active"), v.literal("blocked"), v.literal("paused")),
     currentTaskId: v.optional(v.id("tasks")),
   },
   handler: async (ctx, args) => {
@@ -190,7 +191,7 @@ export const sleep = mutation({
 export const ping = mutation({
   args: {
     sessionKey: v.string(),
-    status: v.optional(v.union(v.literal("idle"), v.literal("active"), v.literal("blocked"))),
+    status: v.optional(v.union(v.literal("idle"), v.literal("active"), v.literal("blocked"), v.literal("paused"))),
   },
   handler: async (ctx, args) => {
     const agent = await ctx.db

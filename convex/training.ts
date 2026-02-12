@@ -88,13 +88,12 @@ export const getEmployeeTraining = query({
 export const getCoursesByCategory = query({
   args: { category: v.optional(v.union(v.literal("equipment"), v.literal("qms"), v.literal("safety"))) },
   handler: async (ctx, { category }) => {
-    let query = ctx.db.query("trainingCourses");
-    
     if (category) {
-      query = query.withIndex("by_category", (q) => q.eq("category", category));
+      return await ctx.db.query("trainingCourses")
+        .withIndex("by_category", (q) => q.eq("category", category))
+        .collect();
     }
-    
-    return await query.collect();
+    return await ctx.db.query("trainingCourses").collect();
   },
 });
 
