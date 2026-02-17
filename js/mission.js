@@ -176,7 +176,7 @@
     }
 
     const data = (window.ActivityLog && window.ActivityLog.getData) ? window.ActivityLog.getData() : [];
-    const recent = data.slice(0, 20);
+    const recent = data.slice(0, 50);
 
     if (recent.length === 0) {
       container.innerHTML = '<div class="activity-compact-empty">No activity yet</div>';
@@ -216,7 +216,8 @@
       const ts = a._creationTime || (a.created_at ? a.created_at * 1000 : Date.now());
       const diffMs = Date.now() - ts;
       const mins = Math.floor(diffMs / 60000);
-      const time = mins < 1 ? "now" : mins < 60 ? `${mins}m` : `${Math.floor(mins / 60)}h`;
+      const hours = Math.floor(mins / 60);
+      const time = mins < 1 ? "now" : mins < 60 ? `${mins}m` : hours < 24 ? `${hours}h` : new Date(ts).toLocaleDateString();
 
       return `<div class="activity-compact-item">
         ${icon} <span class="activity-compact-agent">${escapeHtml(name)}</span> ${verb} <span class="activity-compact-task">${title}</span> <span class="activity-compact-time">• ${time}</span>

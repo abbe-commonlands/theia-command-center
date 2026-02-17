@@ -2150,7 +2150,8 @@ body {
   .mission-sidebar-left,
   .mission-sidebar-right {
     position: static;
-    max-height: 400px;
+    max-height: none;
+    min-height: 500px;
   }
 }
 
@@ -2244,6 +2245,9 @@ body {
 .activity-feed-compact {
   padding: var(--space-xs);
   font-size: var(--text-caption);
+  min-height: 600px;
+  max-height: calc(100vh - 160px);
+  overflow-y: auto;
 }
 
 .activity-compact-item {
