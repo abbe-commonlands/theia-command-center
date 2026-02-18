@@ -3,18 +3,18 @@
  * Real-time database with subscriptions
  * 
  * ╔══════════════════════════════════════════════════════════════════╗
- * ║  ⚠️  CRITICAL: CONVEX_URL MUST BE quick-whale-641               ║
+ * ║  ⚠️  CRITICAL: CONVEX_URL MUST BE aromatic-trout-929             ║
  * ║                                                                  ║
- * ║  DO NOT change to aromatic-trout-929 (that's the dev DB)        ║
- * ║  This has caused 4+ production outages.                          ║
+ * ║  aromatic-trout-929 is the ACTIVE deployment where agents write  ║
+ * ║  quick-whale-641 is STALE (data stopped updating 2026-02-12)    ║
  * ║                                                                  ║
- * ║  Production: https://quick-whale-641.convex.cloud               ║
- * ║  Dev (NEVER USE): aromatic-trout-929                            ║
+ * ║  Production: https://aromatic-trout-929.convex.cloud             ║
+ * ║  Stale (DO NOT USE): quick-whale-641                            ║
  * ╚══════════════════════════════════════════════════════════════════╝
  */
 (() => {
   // 🔒 LOCKED - DO NOT CHANGE - Production Convex deployment
-  const CONVEX_URL = "https://quick-whale-641.convex.cloud";
+  const CONVEX_URL = "https://aromatic-trout-929.convex.cloud";
   
   let client = null;
   let listeners = new Map();
