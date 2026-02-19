@@ -1,34 +1,16 @@
 #!/bin/bash
-# =============================================================================
-# FIX DEPLOYMENT CONFIGURATION
-# Overwrites .env.local with the correct production deployment
-# =============================================================================
-
-set -e
-
-ENV_FILE=".env.local"
-
-cat > "$ENV_FILE" << 'EOF'
-# ═══════════════════════════════════════════════════════════════════════════
-# CONVEX DEPLOYMENT CONFIGURATION
-# ═══════════════════════════════════════════════════════════════════════════
-# 
-# ⚠️  DO NOT CHANGE THESE VALUES  ⚠️
+# Fix the Convex deployment config for abbe-command-center.
 #
-# The frontend (js/convex-client.js) is hardcoded to aromatic-trout-929.
-# If you change this file, CLI and frontend will point to different DBs.
-#
-# This has caused production outages 3+ times (2026-02-04).
-#
-# NOTE: This project uses DEV deployment (aromatic-trout-929).
-# The PROD deployment (aromatic-trout-929) is NOT used by the frontend.
-# ═══════════════════════════════════════════════════════════════════════════
+# CANONICAL: quick-whale-641 (Convex prod)
+# This is used by: frontend, agent crons, npx convex deploy
+# aromatic-trout-929 is dev only.
 
-CONVEX_DEPLOYMENT=dev:aromatic-trout-929
-CONVEX_URL=https://aromatic-trout-929.convex.cloud
+cd "$(dirname "$0")/.." || exit 1
+
+cat > .env.local << 'EOF'
+CONVEX_DEPLOYMENT=prod:quick-whale-641
+CONVEX_URL=https://quick-whale-641.convex.cloud
 EOF
 
-echo "✅ Fixed .env.local → prod:aromatic-trout-929"
-echo ""
-echo "Validating..."
-./scripts/validate-deployment.sh
+echo "✅ Fixed .env.local → prod:quick-whale-641"
+echo "   Run 'npx convex deploy --yes' to push functions"

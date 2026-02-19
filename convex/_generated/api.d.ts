@@ -11,8 +11,11 @@
 import type * as activities from "../activities.js";
 import type * as agents from "../agents.js";
 import type * as documents from "../documents.js";
+import type * as memories from "../memories.js";
 import type * as messages from "../messages.js";
 import type * as notifications from "../notifications.js";
+import type * as scheduledEvents from "../scheduledEvents.js";
+import type * as sessionHistory from "../sessionHistory.js";
 import type * as tasks from "../tasks.js";
 
 import type {
@@ -25,8 +28,11 @@ declare const fullApi: ApiFromModules<{
   activities: typeof activities;
   agents: typeof agents;
   documents: typeof documents;
+  memories: typeof memories;
   messages: typeof messages;
   notifications: typeof notifications;
+  scheduledEvents: typeof scheduledEvents;
+  sessionHistory: typeof sessionHistory;
   tasks: typeof tasks;
 }>;
 
