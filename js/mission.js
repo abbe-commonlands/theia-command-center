@@ -124,7 +124,7 @@
     }
   }
 
-  /** Render the compact agent sidebar cards. */
+  /** Render the compact agent sidebar cards with enhanced context meters. */
   function renderAgentsCompact() {
     const container = $("#agent-sidebar");
     if (!container) return;
@@ -134,26 +134,53 @@
       const card = createEl("div", "agent-card-compact");
       card.dataset.id = agent._id || agent.id;
 
-      const lastActive = agent.lastActiveAt ? formatTimeAgo(agent.lastActiveAt) : "never";
       const contextPercent = agent.contextPercent || 0;
       const contextColor = contextPercent >= 80 ? "var(--accent-red)" :
-                           contextPercent >= 50 ? "var(--accent-amber)" :
+                           contextPercent >= 60 ? "var(--accent-amber)" :
                            "var(--accent-green)";
-      const contextBar = agent.contextUsed ? `
-        <div class="agent-compact-context">
-          <div class="agent-compact-context-bar" style="width:${contextPercent}%;background:${contextColor};"></div>
-        </div>` : "";
+
+      // Session duration
+      let sessionLabel = "";
+      if (agent.status === "active" && agent.lastActiveAt) {
+        const mins = Math.floor((Date.now() - agent.lastActiveAt) / 60000);
+        sessionLabel = mins < 60
+          ? `Active ${mins}m`
+          : `Active ${Math.floor(mins / 60)}h`;
+      } else if (agent.lastSleepAt) {
+        sessionLabel = `Slept ${formatTimeAgo(agent.lastSleepAt)}`;
+      } else if (agent.lastActiveAt) {
+        sessionLabel = formatTimeAgo(agent.lastActiveAt);
+      } else {
+        sessionLabel = "never";
+      }
+
+      // Find last action for this agent from activity feed
+      const agentId = agent._id || agent.id;
+      const allActivities = (window.ActivityLog && window.ActivityLog.getData) ? window.ActivityLog.getData() : [];
+      const lastActivity = allActivities.find(a => a.agentId === agentId || a.agentName === agent.name);
+      const lastAction = lastActivity ? escapeHtml(lastActivity.message.slice(0, 40)) : "";
+
+      const contextBar = `
+        <div class="agent-compact-context-row">
+          <div class="agent-compact-context">
+            <div class="agent-compact-context-bar" style="width:${contextPercent}%;background:${contextColor};"></div>
+          </div>
+          <span class="agent-compact-ctx-pct" style="color:${contextColor};">${contextPercent > 0 ? contextPercent + "%" : ""}</span>
+        </div>`;
 
       card.innerHTML = `
         <span class="agent-compact-emoji">${agent.emoji || "🤖"}</span>
         <div class="agent-compact-info">
-          <div class="agent-compact-name">${agent.name}</div>
+          <div class="agent-compact-name-row">
+            <span class="agent-compact-name">${agent.name}</span>
+            <span class="agent-compact-expand">›</span>
+          </div>
           <div class="agent-compact-status">
             <span class="status-dot ${agent.status || "idle"}"></span>
-            <span>${agent.status || "idle"}</span>
-            <span>· ${lastActive}</span>
+            <span>${sessionLabel}</span>
           </div>
           ${contextBar}
+          ${lastAction ? `<div class="agent-compact-last-action">${lastAction}</div>` : ""}
         </div>
       `;
 
@@ -321,101 +348,213 @@
     return new Date(timestamp).toLocaleDateString();
   }
 
-  /** Open a modal showing agent details and assigned tasks. */
-  function openAgentSession(agent) {
+  /** Build a sparkline SVG from an array of percentage values (0-100). */
+  function buildSparkline(values) {
+    if (!values || values.length === 0) return '<span style="color:var(--text-muted);font-size:11px;">no data</span>';
+    const W = 120, H = 28, pad = 2;
+    const max = 100;
+    const step = values.length > 1 ? (W - pad * 2) / (values.length - 1) : 0;
+    const pts = values.map((v, i) => {
+      const x = pad + i * step;
+      const y = H - pad - ((v / max) * (H - pad * 2));
+      return `${x.toFixed(1)},${y.toFixed(1)}`;
+    }).join(" ");
+    const colorLast = values[values.length - 1] >= 80 ? "#e07070" : values[values.length - 1] >= 60 ? "#d4a44c" : "#5ba85a";
+    return `<svg width="${W}" height="${H}" viewBox="0 0 ${W} ${H}" style="vertical-align:middle;">
+      <polyline points="${pts}" fill="none" stroke="${colorLast}" stroke-width="1.5" stroke-linejoin="round" stroke-linecap="round"/>
+      <circle cx="${(pad + (values.length - 1) * step).toFixed(1)}" cy="${(H - pad - ((values[values.length-1]/max) * (H - pad*2))).toFixed(1)}" r="2.5" fill="${colorLast}"/>
+    </svg>`;
+  }
+
+  /** Open a modal showing enhanced agent details: session history, action timeline, context sparkline. */
+  async function openAgentSession(agent) {
     const modal = $("#task-modal");
     const title = $("#modal-title");
     const form = $("#task-form");
     const footer = $(".modal-footer");
     
-    title.textContent = `${agent.emoji} ${agent.name}`;
+    title.textContent = `${agent.emoji} ${agent.name} — Session Dashboard`;
     
-    // Get tasks assigned to this agent
     const agentId = agent._id || agent.id;
-    const agentTasks = cachedTasks.filter(t => 
-      t.assigneeIds?.includes(agentId) && t.status !== 'done'
-    );
-    
-    // Context usage display
     const contextPercent = agent.contextPercent || 0;
     const contextUsed = agent.contextUsed || 0;
     const contextCap = agent.contextCap || 200000;
-    const contextColor = contextPercent >= 80 ? 'var(--accent-red)' : 
-                        contextPercent >= 50 ? 'var(--accent-amber)' : 
-                        'var(--accent-green)';
+    const contextColor = contextPercent >= 80 ? 'var(--accent-red)' :
+                         contextPercent >= 60 ? 'var(--accent-amber)' :
+                         'var(--accent-green)';
+
+    // Show loading skeleton
+    form.innerHTML = `<div style="color:var(--text-muted);padding:var(--space-md);">Loading session data…</div>`;
+    footer.innerHTML = `<button type="button" class="btn btn-secondary" id="modal-cancel">Close</button>`;
+    modal.classList.add("open");
+    if ($("#modal-cancel")) $("#modal-cancel").addEventListener("click", closeTaskModal);
+
+    // Fetch session history and agent activities in parallel
+    let sessions = [], agentActivities = [];
+    try {
+      if (window.Convex) {
+        [sessions, agentActivities] = await Promise.all([
+          window.Convex.sessionHistory.listByAgent(agentId, 14),
+          window.Convex.activities.listByAgent(agentId),
+        ]);
+      }
+    } catch (e) {
+      console.warn("Could not load session data:", e);
+    }
+
+    // Build context sparkline from session history
+    const sparkValues = sessions
+      .filter(s => s.contextPercent != null)
+      .slice(0, 10)
+      .reverse()
+      .map(s => s.contextPercent);
+    if (contextPercent > 0 && (sparkValues.length === 0 || sparkValues[sparkValues.length - 1] !== contextPercent)) {
+      sparkValues.push(contextPercent);
+    }
+    const sparkline = buildSparkline(sparkValues);
+
+    // Active tasks
+    const agentTasks = cachedTasks.filter(t =>
+      t.assigneeIds?.includes(agentId) && t.status !== 'done'
+    );
+
     const lastSleep = agent.lastSleepAt ? new Date(agent.lastSleepAt).toLocaleString() : 'Never';
-    
+
+    // Format session history rows
+    const sessionRows = sessions.length === 0
+      ? `<tr><td colspan="4" style="color:var(--text-muted);font-size:11px;padding:8px;">No session history yet</td></tr>`
+      : sessions.slice(0, 10).map(s => {
+          const start = new Date(s.startedAt).toLocaleString([], {month:'numeric',day:'numeric',hour:'2-digit',minute:'2-digit'});
+          const durationMs = s.endedAt ? (s.endedAt - s.startedAt) : (Date.now() - s.startedAt);
+          const dur = durationMs < 3600000
+            ? `${Math.round(durationMs / 60000)}m`
+            : `${(durationMs / 3600000).toFixed(1)}h`;
+          const ctx = s.contextPercent != null ? `${s.contextPercent}%` : '—';
+          const note = s.workingOn ? escapeHtml(s.workingOn.slice(0, 35)) : (s.endedAt ? '—' : '<em>in progress</em>');
+          return `<tr>
+            <td style="color:var(--text-muted)">${start}</td>
+            <td>${dur}</td>
+            <td style="color:${(s.contextPercent||0)>=80?'var(--accent-red)':(s.contextPercent||0)>=60?'var(--accent-amber)':'var(--accent-green)'}">${ctx}</td>
+            <td style="font-size:10px;color:var(--text-secondary)">${note}</td>
+          </tr>`;
+        }).join('')
+
+    // Format action timeline
+    const timelineRows = agentActivities.length === 0
+      ? `<div style="color:var(--text-muted);font-size:11px;">No recent actions</div>`
+      : agentActivities.slice(0, 20).map(a => {
+          const ts = a._creationTime || Date.now();
+          const time = formatTimeAgo(ts);
+          return `<div style="display:flex;gap:8px;padding:4px 0;border-bottom:1px solid var(--border-subtle);font-size:11px;">
+            <span style="color:var(--text-muted);flex-shrink:0;min-width:52px">${time}</span>
+            <span style="color:var(--text-secondary)">${escapeHtml(a.message.slice(0, 60))}</span>
+          </div>`;
+        }).join('');
+
+    const tableStyle = `width:100%;border-collapse:collapse;font-size:11px;`;
+    const thStyle = `text-align:left;padding:4px 6px;color:var(--text-muted);border-bottom:1px solid var(--border-subtle);`;
+    const tdStyle = `padding:4px 6px;`;
+
     form.innerHTML = `
-      <div style="display: flex; flex-direction: column; gap: var(--space-md);">
-        <div class="form-group">
-          <label class="form-label">Role</label>
-          <div style="color: var(--text-primary);">${agent.role}</div>
-        </div>
-        <div class="form-group">
-          <label class="form-label">Session Key</label>
-          <code style="background: var(--bg-primary); padding: 8px 12px; border-radius: var(--radius-sm); font-family: var(--font-mono); font-size: var(--text-caption); color: var(--accent-cyan); display: block;">
-            ${agent.sessionKey}
-          </code>
-        </div>
-        <div class="form-group">
-          <label class="form-label">Model</label>
-          <span class="badge badge-cyan">${agent.model || "sonnet"}</span>
-        </div>
-        <div class="form-group">
-          <label class="form-label">Status</label>
-          <div style="display: flex; align-items: center; gap: var(--space-xs);">
-            <span class="status-dot ${agent.status || 'idle'}" style="width: 10px; height: 10px;"></span>
-            <span style="text-transform: capitalize;">${agent.status || 'idle'}</span>
+      <div style="display:flex;flex-direction:column;gap:var(--space-md);">
+
+        <!-- Header row: role, model, status -->
+        <div style="display:flex;gap:var(--space-md);flex-wrap:wrap;align-items:center;">
+          <div>
+            <div style="font-size:11px;color:var(--text-muted);">Role</div>
+            <div style="color:var(--text-primary);font-size:13px;">${escapeHtml(agent.role)}</div>
+          </div>
+          <div>
+            <div style="font-size:11px;color:var(--text-muted);">Model</div>
+            <span class="badge badge-cyan">${agent.model || "sonnet"}</span>
+          </div>
+          <div>
+            <div style="font-size:11px;color:var(--text-muted);">Status</div>
+            <div style="display:flex;align-items:center;gap:4px;">
+              <span class="status-dot ${agent.status || 'idle'}" style="width:9px;height:9px;"></span>
+              <span style="text-transform:capitalize;font-size:13px;">${agent.status || 'idle'}</span>
+            </div>
+          </div>
+          <div>
+            <div style="font-size:11px;color:var(--text-muted);">Session Key</div>
+            <code style="font-size:10px;color:var(--accent-cyan);">${agent.sessionKey}</code>
           </div>
         </div>
-        
-        <!-- Context Usage Section -->
+
+        <!-- Context usage + sparkline -->
         <div class="form-group">
-          <label class="form-label" style="color: ${contextColor};">
+          <label class="form-label" style="color:${contextColor};">
             ${contextPercent >= 80 ? '⚠️' : '📊'} Context Usage
           </label>
-          <div style="background: var(--bg-primary); padding: var(--space-sm); border-radius: var(--radius-sm);">
-            <div style="display: flex; justify-content: space-between; margin-bottom: 4px;">
-              <span style="font-size: var(--text-caption); color: var(--text-muted);">
+          <div style="background:var(--bg-primary);padding:var(--space-sm);border-radius:var(--radius-sm);">
+            <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:4px;">
+              <span style="font-size:11px;color:var(--text-muted);">
                 ${contextUsed.toLocaleString()} / ${contextCap.toLocaleString()} tokens
               </span>
-              <span style="font-size: var(--text-caption); font-weight: 600; color: ${contextColor};">
-                ${contextPercent}%
+              <span style="font-size:12px;font-weight:600;color:${contextColor};">${contextPercent}%</span>
+            </div>
+            <div style="height:8px;background:var(--bg-secondary);border-radius:4px;overflow:hidden;margin-bottom:6px;">
+              <div style="height:100%;width:${contextPercent}%;background:${contextColor};transition:width 0.3s;"></div>
+            </div>
+            <div style="display:flex;align-items:center;justify-content:space-between;">
+              <span style="font-size:10px;color:var(--text-muted);">
+                Last sleep: ${lastSleep}
+                ${agent.lastSleepNote ? `<br><em>"${escapeHtml(agent.lastSleepNote.slice(0, 60))}"</em>` : ''}
               </span>
-            </div>
-            <div style="height: 8px; background: var(--bg-secondary); border-radius: 4px; overflow: hidden;">
-              <div style="height: 100%; width: ${contextPercent}%; background: ${contextColor}; transition: width 0.3s;"></div>
-            </div>
-            <div style="margin-top: 8px; font-size: 11px; color: var(--text-muted);">
-              Last sleep: ${lastSleep}
-              ${agent.lastSleepNote ? `<br><em>"${escapeHtml(agent.lastSleepNote)}"</em>` : ''}
+              <div title="Context % trend (last ${sparkValues.length} sessions)">${sparkline}</div>
             </div>
           </div>
         </div>
-        
+
+        <!-- Session History (last 10) -->
         <div class="form-group">
-          <label class="form-label">Assigned Tasks (${agentTasks.length})</label>
-          <div id="agent-tasks" style="max-height: 120px; overflow-y: auto;">
-            ${agentTasks.length === 0 
-              ? `<p style="color: var(--text-muted); font-size: var(--text-caption);">No active tasks</p>`
+          <label class="form-label">🕐 Session History (last 14)</label>
+          <div style="overflow-x:auto;max-height:180px;overflow-y:auto;background:var(--bg-primary);border-radius:var(--radius-sm);padding:4px;">
+            <table style="${tableStyle}">
+              <thead>
+                <tr>
+                  <th style="${thStyle}">Started</th>
+                  <th style="${thStyle}">Duration</th>
+                  <th style="${thStyle}">Context</th>
+                  <th style="${thStyle}">Working On</th>
+                </tr>
+              </thead>
+              <tbody id="session-history-rows">
+                ${sessionRows}
+              </tbody>
+            </table>
+          </div>
+        </div>
+
+        <!-- Action Timeline -->
+        <div class="form-group">
+          <label class="form-label">⚡ Recent Actions</label>
+          <div style="max-height:140px;overflow-y:auto;background:var(--bg-primary);border-radius:var(--radius-sm);padding:var(--space-xs);">
+            ${timelineRows}
+          </div>
+        </div>
+
+        <!-- Active Tasks -->
+        <div class="form-group">
+          <label class="form-label">📋 Assigned Tasks (${agentTasks.length} active)</label>
+          <div style="max-height:100px;overflow-y:auto;">
+            ${agentTasks.length === 0
+              ? `<p style="color:var(--text-muted);font-size:11px;">No active tasks</p>`
               : agentTasks.map(t => `
-                  <div style="padding: 8px; background: var(--bg-primary); border-radius: var(--radius-sm); margin-bottom: 4px; font-size: var(--text-caption);">
-                    <span class="badge ${PRIORITY_COLORS[t.priority] || 'badge-neutral'}" style="font-size: 10px;">${t.priority}</span>
+                  <div style="padding:6px 8px;background:var(--bg-primary);border-radius:var(--radius-sm);margin-bottom:3px;font-size:11px;">
+                    <span class="badge ${PRIORITY_COLORS[t.priority] || 'badge-neutral'}" style="font-size:10px;">P${t.priority}</span>
                     ${escapeHtml(t.title)}
                   </div>
                 `).join('')
             }
           </div>
         </div>
+
       </div>
     `;
     
-    footer.innerHTML = `
-      <button type="button" class="btn btn-secondary" id="modal-cancel">Close</button>
-    `;
-    
-    $("#modal-cancel").addEventListener("click", closeTaskModal);
-    modal.classList.add("open");
+    footer.innerHTML = `<button type="button" class="btn btn-secondary" id="modal-cancel">Close</button>`;
+    if ($("#modal-cancel")) $("#modal-cancel").addEventListener("click", closeTaskModal);
   }
 
   /** Populate the assignee dropdown with cached agents. */

@@ -122,6 +122,22 @@ export default defineSchema({
     .index("by_agent", ["mentionedAgentId"])
     .index("by_unread", ["mentionedAgentId", "delivered"]),
 
+  // Session history - one row per agent wake/sleep cycle
+  sessionHistory: defineTable({
+    agentId: v.id("agents"),
+    agentName: v.string(),
+    startedAt: v.number(),
+    endedAt: v.optional(v.number()),
+    contextUsed: v.optional(v.number()),
+    contextCap: v.optional(v.number()),
+    contextPercent: v.optional(v.number()),
+    workingOn: v.optional(v.string()),
+    nextSteps: v.optional(v.string()),
+    activitiesCount: v.optional(v.number()),
+  })
+    .index("by_agent", ["agentId"])
+    .index("by_agent_time", ["agentId", "startedAt"]),
+
   // RBAC permissions
   permissions: defineTable({
     agentId: v.id("agents"),

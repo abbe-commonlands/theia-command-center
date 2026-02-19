@@ -78,6 +78,15 @@ export const updateStatus = mutation({
       lastActiveAt: Date.now(),
     });
 
+    // When going active: open a new session history row
+    if (args.status === "active" && agent.status !== "active") {
+      await ctx.db.insert("sessionHistory", {
+        agentId: agent._id,
+        agentName: agent.name,
+        startedAt: Date.now(),
+      });
+    }
+
     // Log activity
     await ctx.db.insert("activities", {
       type: "agent_status_changed",
@@ -167,6 +176,23 @@ export const sleep = mutation({
       currentTaskId: undefined,
       lastActiveAt: Date.now(),
     });
+
+    // Close the most recent open session history row
+    const openSession = await ctx.db
+      .query("sessionHistory")
+      .withIndex("by_agent_time", (q) => q.eq("agentId", agent._id))
+      .order("desc")
+      .first();
+    if (openSession && !openSession.endedAt) {
+      await ctx.db.patch(openSession._id, {
+        endedAt: Date.now(),
+        contextUsed: args.contextUsed,
+        contextCap: args.contextCap,
+        contextPercent,
+        workingOn: args.workingOn,
+        nextSteps: args.nextSteps,
+      });
+    }
 
     // Log the sleep
     await ctx.db.insert("activities", {

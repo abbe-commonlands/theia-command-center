@@ -2241,6 +2241,53 @@ body {
   border-radius: 2px;
 }
 
+.agent-card-compact .agent-compact-name-row {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+}
+
+.agent-card-compact .agent-compact-expand {
+  color: var(--text-muted);
+  font-size: 14px;
+  transition: transform var(--duration-fast), color var(--duration-fast);
+}
+
+.agent-card-compact:hover .agent-compact-expand {
+  color: var(--text-primary);
+  transform: translateX(2px);
+}
+
+.agent-card-compact .agent-compact-context-row {
+  display: flex;
+  align-items: center;
+  gap: 4px;
+  margin-top: 2px;
+}
+
+.agent-card-compact .agent-compact-context-row .agent-compact-context {
+  flex: 1;
+  margin-top: 0;
+}
+
+.agent-card-compact .agent-compact-ctx-pct {
+  font-size: 10px;
+  font-weight: 600;
+  flex-shrink: 0;
+  min-width: 26px;
+  text-align: right;
+}
+
+.agent-card-compact .agent-compact-last-action {
+  font-size: 10px;
+  color: var(--text-muted);
+  margin-top: 2px;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  font-style: italic;
+}
+
 /* Compact Activity Feed */
 .activity-feed-compact {
   padding: var(--space-xs);

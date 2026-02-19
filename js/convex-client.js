@@ -285,6 +285,16 @@
     }
   };
 
+  // ===== SESSION HISTORY API =====
+  const sessionHistory = {
+    async listByAgent(agentId, limit = 20) {
+      return await query("sessionHistory:listByAgent", { agentId, limit });
+    },
+    async listRecent(limit = 50) {
+      return await query("sessionHistory:listRecent", { limit });
+    },
+  };
+
   // ===== DOCUMENTS API =====
   const documents = {
     async list() {
@@ -316,6 +326,7 @@
     activities,
     messages,
     documents,
+    sessionHistory,
     onDataChange,
     stopPolling,
     
