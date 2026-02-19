@@ -1,0 +1,46 @@
+[
+  {
+    "_creationTime": 1770303218826.7012,
+    "_id": "k573afr0tv4mf52tsc3v27vwjs80jf6z",
+    "itemReturnRate": 0.13,
+    "itemsReturned": 60,
+    "qualityReturnRate": 0.15,
+    "qualityReturns": 1,
+    "totalItems": 45268,
+    "totalShipments": 675,
+    "year": 2022
+  },
+  {
+    "_creationTime": 1770303218826.7014,
+    "_id": "k5755h4wj4j66y5jgdh5qks1s580jbef",
+    "itemReturnRate": 0.04,
+    "itemsReturned": 22,
+    "qualityReturnRate": 0.2,
+    "qualityReturns": 2,
+    "totalItems": 52801,
+    "totalShipments": 1010,
+    "year": 2023
+  },
+  {
+    "_creationTime": 1770303218826.7017,
+    "_id": "k57bbh8ek76pt8d8b5a2yjk61180ky6a",
+    "itemReturnRate": 1.07,
+    "itemsReturned": 976,
+    "qualityReturnRate": 0.54,
+    "qualityReturns": 10,
+    "totalItems": 90844,
+    "totalShipments": 1850,
+    "year": 2024
+  },
+  {
+    "_creationTime": 1770303218826.702,
+    "_id": "k57btcjp4k0x1c3s2kkgw2cqrn80km8s",
+    "itemReturnRate": 0,
+    "itemsReturned": 0,
+    "qualityReturnRate": 0,
+    "qualityReturns": 0,
+    "totalItems": 44000,
+    "totalShipments": 830,
+    "year": 2025
+  }
+]

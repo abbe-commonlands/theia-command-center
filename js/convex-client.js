@@ -295,6 +295,22 @@
     },
   };
 
+  // ===== SCHEDULED EVENTS API =====
+  const scheduledEvents = {
+    async list(type) {
+      return await query("scheduledEvents:list", type ? { type } : {});
+    },
+    async upsert(event) {
+      return await mutate("scheduledEvents:upsert", event);
+    },
+    async recordRun(id, result, durationMs, nextRunAt) {
+      return await mutate("scheduledEvents:recordRun", { id, result, durationMs, nextRunAt });
+    },
+    async remove(id) {
+      return await mutate("scheduledEvents:remove", { id });
+    },
+  };
+
   // ===== DOCUMENTS API =====
   const documents = {
     async list() {
@@ -327,6 +343,7 @@
     messages,
     documents,
     sessionHistory,
+    scheduledEvents,
     onDataChange,
     stopPolling,
     

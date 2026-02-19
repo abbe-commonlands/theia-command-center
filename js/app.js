@@ -42,6 +42,11 @@
       window.Mission.refresh();
     }
     
+    // Initialize calendar on first view
+    if (tabName === "calendar" && window.Calendar) {
+      window.Calendar.init();
+    }
+    
     // Initialize documents on first view
     if (tabName === "documents" && window.Documents) {
       window.Documents.init();

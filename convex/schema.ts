@@ -138,6 +138,26 @@ export default defineSchema({
     .index("by_agent", ["agentId"])
     .index("by_agent_time", ["agentId", "startedAt"]),
 
+  // Scheduled events - cron jobs, agent heartbeats, and planned tasks
+  scheduledEvents: defineTable({
+    name: v.string(),
+    type: v.union(v.literal("cron"), v.literal("task"), v.literal("heartbeat")),
+    schedule: v.string(),        // cron expression or ISO timestamp
+    scheduleKind: v.union(v.literal("cron"), v.literal("at"), v.literal("every")),
+    agentId: v.optional(v.id("agents")),
+    agentName: v.optional(v.string()),
+    taskId: v.optional(v.id("tasks")),
+    enabled: v.boolean(),
+    lastRunAt: v.optional(v.number()),
+    lastRunResult: v.optional(v.union(v.literal("success"), v.literal("failure"))),
+    lastRunDurationMs: v.optional(v.number()),
+    nextRunAt: v.optional(v.number()),
+    metadata: v.optional(v.any()),
+  })
+    .index("by_type", ["type"])
+    .index("by_agent", ["agentId"])
+    .index("by_nextRun", ["nextRunAt"]),
+
   // RBAC permissions
   permissions: defineTable({
     agentId: v.id("agents"),

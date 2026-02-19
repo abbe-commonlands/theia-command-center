@@ -2333,3 +2333,234 @@ body {
   color: var(--text-muted);
   font-style: italic;
 }
+
+/* =========================================================================
+   Calendar View
+   ========================================================================= */
+
+.cal-layout {
+  display: grid;
+  grid-template-columns: 1fr 260px;
+  gap: var(--space-md);
+  align-items: start;
+}
+
+.cal-main-card {
+  overflow: hidden;
+}
+
+.cal-detail-card {
+  position: sticky;
+  top: var(--space-md);
+}
+
+.cal-legend {
+  display: flex;
+  gap: var(--space-sm);
+  flex-wrap: wrap;
+}
+
+.cal-legend-item {
+  padding: 3px 10px;
+  border-radius: var(--radius-sm);
+  font-size: 11px;
+  font-weight: 600;
+}
+
+/* Calendar grid */
+.cal-grid-container {
+  overflow-x: auto;
+}
+
+.cal-header-row {
+  display: grid;
+  grid-template-columns: repeat(7, 1fr);
+  border-bottom: 2px solid var(--border-subtle);
+}
+
+.cal-header-cell {
+  padding: var(--space-xs) var(--space-sm);
+  font-size: 11px;
+  font-weight: 700;
+  color: var(--text-muted);
+  text-align: center;
+  text-transform: uppercase;
+  letter-spacing: 0.05em;
+}
+
+.cal-header-cell.cal-today {
+  color: var(--accent-cyan);
+}
+
+.cal-grid-row {
+  display: grid;
+  grid-template-columns: repeat(7, 1fr);
+  min-height: 200px;
+  gap: 1px;
+  background: var(--border-subtle);
+}
+
+.cal-grid-cell {
+  background: var(--bg-secondary);
+  padding: 4px;
+  display: flex;
+  flex-direction: column;
+  gap: 3px;
+  min-height: 160px;
+}
+
+.cal-grid-cell.cal-today-col {
+  background: rgba(100, 180, 255, 0.04);
+}
+
+.cal-empty-day {
+  color: var(--border-subtle);
+  text-align: center;
+  font-size: 18px;
+  margin-top: 20px;
+}
+
+.cal-event {
+  display: flex;
+  align-items: center;
+  gap: 3px;
+  padding: 3px 5px;
+  border-radius: 3px;
+  font-size: 10px;
+  cursor: pointer;
+  transition: opacity var(--duration-fast), transform var(--duration-fast);
+  line-height: 1.3;
+  overflow: hidden;
+}
+
+.cal-event:hover {
+  opacity: 0.85;
+  transform: scale(1.02);
+}
+
+.cal-event-time {
+  font-weight: 700;
+  flex-shrink: 0;
+  opacity: 0.85;
+}
+
+.cal-event-name {
+  flex: 1;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.cal-event-result {
+  flex-shrink: 0;
+  font-size: 9px;
+}
+
+.cal-event-result.success { color: #5ba85a; }
+.cal-event-result.failure { color: #e07070; }
+
+/* Run history bar */
+.cal-run-history {
+  border-top: 1px solid var(--border-subtle);
+  padding: var(--space-sm);
+  background: var(--bg-primary);
+}
+
+.cal-run-history-title {
+  font-size: 11px;
+  font-weight: 700;
+  color: var(--text-muted);
+  text-transform: uppercase;
+  letter-spacing: 0.05em;
+  margin-bottom: var(--space-xs);
+}
+
+.cal-run-row {
+  display: flex;
+  align-items: center;
+  gap: var(--space-sm);
+  padding: 4px 0;
+  font-size: 11px;
+  border-bottom: 1px solid var(--border-subtle);
+  flex-wrap: wrap;
+}
+
+.cal-run-row:last-child {
+  border-bottom: none;
+}
+
+.cal-run-dot { flex-shrink: 0; }
+
+.cal-run-type {
+  font-weight: 600;
+  flex-shrink: 0;
+  min-width: 80px;
+}
+
+.cal-run-name {
+  flex: 1;
+  color: var(--text-primary);
+  min-width: 80px;
+}
+
+.cal-run-agent {
+  color: var(--text-secondary);
+  font-style: italic;
+}
+
+.cal-run-last,
+.cal-run-next {
+  color: var(--text-muted);
+  white-space: nowrap;
+}
+
+/* Event detail panel */
+.cal-detail-header {
+  margin-bottom: var(--space-sm);
+}
+
+.cal-detail-name {
+  font-weight: 700;
+  font-size: var(--text-body);
+  color: var(--text-primary);
+}
+
+.cal-detail-type {
+  font-size: 11px;
+  font-weight: 600;
+  margin-top: 2px;
+}
+
+.cal-detail-body {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+}
+
+.cal-detail-row {
+  display: flex;
+  gap: var(--space-sm);
+  font-size: 12px;
+  align-items: baseline;
+}
+
+.cal-detail-row > span:first-child {
+  color: var(--text-muted);
+  min-width: 80px;
+  flex-shrink: 0;
+}
+
+.cal-detail-row code {
+  font-family: var(--font-mono);
+  font-size: 11px;
+  background: var(--bg-primary);
+  padding: 2px 6px;
+  border-radius: 3px;
+  color: var(--accent-cyan);
+}
+
+@media (max-width: 900px) {
+  .cal-layout {
+    grid-template-columns: 1fr;
+  }
+}

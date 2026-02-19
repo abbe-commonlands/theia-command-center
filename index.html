@@ -42,6 +42,16 @@
           </button>
           <button 
             class="nav-tab" 
+            data-tab="calendar" 
+            role="tab" 
+            aria-selected="false"
+            aria-controls="calendar-screen"
+          >
+            <span>📅</span>
+            <span>Calendar</span>
+          </button>
+          <button 
+            class="nav-tab" 
             data-tab="documents" 
             role="tab" 
             aria-selected="false"
@@ -198,6 +208,56 @@
 
         <!-- Hidden: keep original agent-grid for modal usage -->
         <div id="agent-grid" class="agent-grid" style="display: none;"></div>
+      </section>
+
+      <!-- Calendar Screen -->
+      <section
+        id="calendar-screen"
+        class="screen"
+        data-screen="calendar"
+        role="tabpanel"
+        aria-labelledby="calendar-tab"
+      >
+        <div class="card" style="margin-bottom: var(--space-md);">
+          <div class="card-header">
+            <div>
+              <h2 class="card-title">📅 Calendar</h2>
+              <p class="card-subtitle" id="cal-week-label">Weekly schedule of cron jobs, heartbeats, and planned tasks</p>
+            </div>
+            <div class="flex gap-sm">
+              <button class="btn btn-secondary" id="cal-prev-week">‹ Prev</button>
+              <button class="btn btn-secondary" id="cal-today-btn">Today</button>
+              <button class="btn btn-secondary" id="cal-next-week">Next ›</button>
+              <button class="btn btn-secondary" id="cal-refresh-btn">🔄 Refresh</button>
+            </div>
+          </div>
+        </div>
+
+        <!-- Legend -->
+        <div class="cal-legend" style="margin-bottom: var(--space-md);">
+          <span class="cal-legend-item" style="background:var(--accent-cyan);color:#fff;">⚙️ Cron</span>
+          <span class="cal-legend-item" style="background:var(--accent-amber);color:#1a1a1a;">📋 Task</span>
+          <span class="cal-legend-item" style="background:#4a4a5a;color:#ccc;">💓 Heartbeat</span>
+        </div>
+
+        <div class="cal-layout">
+          <div class="card cal-main-card">
+            <div id="calendar-grid" class="cal-grid-container">
+              <div style="color:var(--text-muted);padding:var(--space-md);">Loading calendar…</div>
+            </div>
+          </div>
+          <div class="card cal-detail-card">
+            <div class="card-header">
+              <h3 class="card-title" style="font-size:var(--text-body);">Event Details</h3>
+            </div>
+            <div id="cal-detail-panel" style="padding:var(--space-md);display:none;">
+              <p style="color:var(--text-muted);font-size:var(--text-caption);">Click an event to see details</p>
+            </div>
+            <div style="padding:var(--space-md);color:var(--text-muted);font-size:var(--text-caption);" id="cal-detail-empty">
+              Click any event block on the calendar to see its schedule, last run result, and next run time.
+            </div>
+          </div>
+        </div>
       </section>
 
       <!-- Documents Screen -->
@@ -579,6 +639,7 @@
   
   <script src="js/skills.js"></script>
   <script src="js/embedding-viz.js"></script>
+  <script src="js/calendar.js"></script>
   <script src="js/log.js"></script>
 </body>
 </html>
