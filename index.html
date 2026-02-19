@@ -6,10 +6,8 @@
   <meta name="color-scheme" content="dark">
   <title>Abbe Command Center</title>
   <link rel="stylesheet" href="css/styles.css">
-  <!-- Three.js for 3D visualization -->
-  <script src="https://cdnjs.cloudflare.com/ajax/libs/three.js/r128/three.min.js"></script>
-  <script src="https://cdn.jsdelivr.net/npm/three@0.128.0/examples/js/controls/OrbitControls.js"></script>
-  <script src="https://cdn.jsdelivr.net/npm/umap-js@latest"></script>
+  <!-- marked.js for markdown rendering -->
+  <script src="https://cdn.jsdelivr.net/npm/marked@9/marked.min.js"></script>
   <style>
     /* Critical inline styles for faster initial paint */
     body { background: #1E1E24; color: #F0F0F4; }
@@ -83,13 +81,13 @@
           </button>
           <button 
             class="nav-tab" 
-            data-tab="knowledge" 
+            data-tab="memory" 
             role="tab" 
             aria-selected="false"
-            aria-controls="knowledge-screen"
+            aria-controls="memory-screen"
           >
-            <span>🌐</span>
-            <span>Knowledge Map</span>
+            <span>🧠</span>
+            <span>Memory</span>
           </button>
         </nav>
       </div>
@@ -313,47 +311,63 @@
         </div>
       </section>
 
-      <!-- Knowledge Map Screen -->
-      <section 
-        id="knowledge-screen" 
-        class="screen" 
-        data-screen="knowledge"
+      <!-- Memory Browser Screen -->
+      <section
+        id="memory-screen"
+        class="screen"
+        data-screen="memory"
         role="tabpanel"
-        aria-labelledby="knowledge-tab"
+        aria-labelledby="memory-tab"
       >
         <div class="card" style="margin-bottom: var(--space-md);">
           <div class="card-header">
             <div>
-              <h2 class="card-title">Agent Knowledge Map</h2>
-              <p class="card-subtitle">3D visualization of agent knowledge domains and overlaps</p>
+              <h2 class="card-title">🧠 Memory Browser</h2>
+              <p class="card-subtitle">Search and browse agent memories — MEMORY.md + daily notes</p>
             </div>
             <div class="flex gap-sm">
-              <button class="btn btn-secondary" id="reset-camera-btn">Reset View</button>
-              <button class="btn btn-primary" id="generate-embeddings-btn">Generate Embeddings</button>
+              <input
+                id="memory-search"
+                type="text"
+                class="input"
+                placeholder="Search memories…"
+                style="width: 220px;"
+                autocomplete="off"
+              />
+              <button class="btn btn-secondary" id="memory-refresh-btn">🔄 Refresh</button>
             </div>
           </div>
         </div>
 
-        <div class="knowledge-layout">
-          <div class="card knowledge-viz-card">
-            <div id="embedding-container" style="width: 100%; height: 500px;"></div>
+        <!-- Filter pills -->
+        <div class="filter-bar" style="margin-bottom: var(--space-md);">
+          <span style="font-size: 11px; color: var(--text-muted); margin-right: 4px;">Agent:</span>
+          <button class="filter-pill memory-filter-pill active" data-agent="">All</button>
+          <button class="filter-pill memory-filter-pill" data-agent="Abbe">🧠 Abbe</button>
+          <button class="filter-pill memory-filter-pill" data-agent="Zernike">💻 Zernike</button>
+          <button class="filter-pill memory-filter-pill" data-agent="Seidel">🎯 Seidel</button>
+          <button class="filter-pill memory-filter-pill" data-agent="Iris">📡 Iris</button>
+          <button class="filter-pill memory-filter-pill" data-agent="Kanban">📦 Kanban</button>
+          <button class="filter-pill memory-filter-pill" data-agent="Deming">✅ Deming</button>
+          <span style="font-size: 11px; color: var(--text-muted); margin: 0 4px 0 12px;">Type:</span>
+          <button class="filter-pill memory-filter-pill active" data-type="">All</button>
+          <button class="filter-pill memory-filter-pill" data-type="daily">📅 Daily</button>
+          <button class="filter-pill memory-filter-pill" data-type="longterm">🧠 Long-Term</button>
+          <button class="filter-pill memory-filter-pill" data-type="working">📝 Working</button>
+        </div>
+
+        <!-- Two-panel layout -->
+        <div class="memory-layout">
+          <!-- Left: memory list -->
+          <div class="card memory-list-card">
+            <div id="memory-list" class="memory-list">
+              <div style="color: var(--text-muted); padding: var(--space-md);">Loading memories…</div>
+            </div>
           </div>
-          <div class="card knowledge-legend-card">
-            <div class="card-header">
-              <h3 class="card-title" style="font-size: var(--text-body);">Agents</h3>
-            </div>
-            <div id="embedding-legend" class="embedding-legend">
-              <!-- Populated by JS -->
-            </div>
-            <div style="padding: var(--space-md); border-top: 1px solid var(--border-subtle);">
-              <h4 style="font-size: var(--text-caption); color: var(--text-muted); margin-bottom: var(--space-xs);">Controls</h4>
-              <ul style="font-size: var(--text-caption); color: var(--text-secondary); padding-left: var(--space-md);">
-                <li>Drag to rotate</li>
-                <li>Scroll to zoom</li>
-                <li>Ctrl+drag to pan</li>
-                <li>Hover for details</li>
-                <li>Click legend to filter</li>
-              </ul>
+          <!-- Right: detail viewer -->
+          <div class="card memory-detail-card">
+            <div id="memory-detail" class="memory-detail">
+              <p class="memory-detail-placeholder">Select a memory to read it.</p>
             </div>
           </div>
         </div>
@@ -638,8 +652,8 @@
   <script src="js/app.js"></script>
   
   <script src="js/skills.js"></script>
-  <script src="js/embedding-viz.js"></script>
   <script src="js/calendar.js"></script>
+  <script src="js/memory-browser.js"></script>
   <script src="js/log.js"></script>
 </body>
 </html>

@@ -158,6 +158,28 @@ export default defineSchema({
     .index("by_agent", ["agentId"])
     .index("by_nextRun", ["nextRunAt"]),
 
+  // Memory entries - synced from agent workspace files
+  memories: defineTable({
+    agentName: v.string(),
+    agentId: v.optional(v.id("agents")),
+    sourcePath: v.string(),        // e.g. "~/clawd/memory/2026-02-18.md"
+    sourceType: v.union(v.literal("daily"), v.literal("longterm"), v.literal("working")),
+    content: v.string(),           // Raw markdown content
+    date: v.number(),              // Timestamp (from filename or file mod time)
+    sections: v.optional(v.array(v.object({
+      heading: v.string(),
+      content: v.string(),
+    }))),
+    searchText: v.string(),        // Lowercase content for search
+  })
+    .index("by_agent", ["agentName"])
+    .index("by_date", ["date"])
+    .index("by_type", ["sourceType"])
+    .searchIndex("search_content", {
+      searchField: "searchText",
+      filterFields: ["agentName", "sourceType"],
+    }),
+
   // RBAC permissions
   permissions: defineTable({
     agentId: v.id("agents"),

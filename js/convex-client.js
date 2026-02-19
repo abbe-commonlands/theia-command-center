@@ -311,6 +311,25 @@
     },
   };
 
+  // ===== MEMORIES API =====
+  const memories = {
+    async search(q, agentName, sourceType, limit = 40) {
+      return await query("memories:search", { q, agentName, sourceType, limit });
+    },
+    async list(agentName, sourceType, limit = 40) {
+      return await query("memories:list", { agentName, sourceType, limit });
+    },
+    async get(id) {
+      return await query("memories:get", { id });
+    },
+    async sync(memory) {
+      return await mutate("memories:sync", memory);
+    },
+    async remove(id) {
+      return await mutate("memories:remove", { id });
+    },
+  };
+
   // ===== DOCUMENTS API =====
   const documents = {
     async list() {
@@ -344,6 +363,7 @@
     documents,
     sessionHistory,
     scheduledEvents,
+    memories,
     onDataChange,
     stopPolling,
     

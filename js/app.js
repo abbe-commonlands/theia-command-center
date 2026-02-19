@@ -57,9 +57,9 @@
       window.ActivityLog.load();
     }
     
-    // Initialize 3D viz on first view
-    if (tabName === "knowledge" && window.initEmbeddingViz) {
-      window.initEmbeddingViz();
+    // Initialize memory browser on first view
+    if (tabName === "memory" && window.MemoryBrowser) {
+      window.MemoryBrowser.init();
     }
   }
 
