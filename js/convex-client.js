@@ -3,14 +3,19 @@
  * Real-time database with subscriptions
  * 
  * ╔══════════════════════════════════════════════════════════════════╗
- * ║  CANONICAL: quick-whale-641 (Convex prod deployment)            ║
- * ║  All agents, crons, and this frontend use quick-whale-641       ║
- * ║  `npx convex deploy` pushes here automatically                  ║
- * ║  aromatic-trout-929 is dev-only — not used in production        ║
+ * ║  🚨 LOCKED — DO NOT CHANGE THIS URL — 5+ PRODUCTION OUTAGES 🚨 ║
+ * ║                                                                  ║
+ * ║  Production: https://quick-whale-641.convex.cloud               ║
+ * ║  Dev (NEVER USE IN PROD): aromatic-trout-929                    ║
+ * ║                                                                  ║
+ * ║  If data looks stale, the problem is NOT this URL.              ║
+ * ║  Check agent heartbeats and Convex function logs instead.       ║
+ * ║  Changing this URL WILL break production. Ask Max first.        ║
  * ╚══════════════════════════════════════════════════════════════════╝
  */
 (() => {
-  // 🔒 LOCKED - Production Convex deployment (Convex "prod")
+  // 🔒 LOCKED — DO NOT CHANGE — Production Convex (quick-whale-641)
+  // Incident count from changing this: 5+ outages. STOP.
   const CONVEX_URL = "https://quick-whale-641.convex.cloud";
   
   let client = null;
