@@ -460,13 +460,19 @@ body {
 /* Kanban Board */
 .kanban-board {
   display: grid;
-  grid-template-columns: repeat(auto-fit, minmax(min(100%, 240px), 1fr));
+  grid-template-columns: repeat(5, 1fr);
   gap: var(--space-md);
 }
 
-@media (min-width: 1200px) {
+@media (max-width: 1024px) {
   .kanban-board {
-    grid-template-columns: repeat(5, 1fr);
+    grid-template-columns: repeat(3, 1fr);
+  }
+}
+
+@media (max-width: 640px) {
+  .kanban-board {
+    grid-template-columns: 1fr;
   }
 }
 
