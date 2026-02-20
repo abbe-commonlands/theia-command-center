@@ -380,12 +380,21 @@ function getSkillIcon(name) {
     'coding-discipline': '🧠',
     'executing-plans': '📋',
     'excalidraw': '✏️',
+    'cold-email': '📧',
+    'copywriting': '✍️',
+    'marketing-psychology': '🧠',
+    'seo-audit': '🔍',
+    'programmatic-seo': '📄',
+    'content-strategy': '📝',
+    'systematic-debugging': '🐛',
+    'verification-before-completion': '✅',
+    'writing-plans': '📋',
   };
   return icons[name] || '🛠️';
 }
 
 function useStaticSkillsData() {
-  // Static data from installed skills — updated 2026-02-19
+  // Static data from installed skills — updated 2026-02-20
   // Shared: ~/.openclaw/skills/  |  Bundled: ~/openclaw/skills/
   skillsData = {
     shared: [
@@ -412,25 +421,38 @@ function useStaticSkillsData() {
       abbe: [],
       seidel: [
         { name: 'apollo-enrichment', description: 'Apollo.io contact/company enrichment for sales prospecting', icon: '🎯' },
+        { name: 'cold-email', description: 'B2B cold email writing — peer voice, personalization, follow-up sequences', icon: '📧' },
+        { name: 'copywriting', description: 'Technical copywriting for engineers — specs-first, no fluff', icon: '✍️' },
         { name: 'firecrawler', description: 'Web scraping & competitor intelligence via Firecrawl', icon: '🔥' },
         { name: 'hubspot', description: 'HubSpot CRM contacts, deals, companies', icon: '📊' },
+        { name: 'marketing-psychology', description: '70+ mental models for buyer behavior (Jobs to Be Done, First Principles)', icon: '🧠' },
         { name: 'phantombuster', description: 'LinkedIn automation & lead generation', icon: '👻' },
       ],
       iris: [
+        { name: 'content-strategy', description: 'Plan searchable/shareable content for technical B2B audience', icon: '📝' },
         { name: 'geo-optimization', description: 'GEO audit, schema markup, llms.txt, AI search monitoring', icon: '🔍' },
         { name: 'google-ads', description: 'Google Ads campaign audit & optimization', icon: '📈' },
         { name: 'google-analytics', description: 'GA4 + Google Search Console queries & reporting', icon: '📊' },
         { name: 'marketing-mode', description: 'B2B technical marketing playbooks & content strategy', icon: '📣' },
+        { name: 'programmatic-seo', description: 'Build SEO-optimized lens spec pages at scale from Acumatica catalog', icon: '📄' },
+        { name: 'seo-audit', description: 'Structured SEO audit — crawlability, technical, on-page, content quality', icon: '🔍' },
       ],
-      zernike: [],
+      zernike: [
+        { name: 'systematic-debugging', description: 'Root cause investigation before fixes — 4-phase methodology', icon: '🐛' },
+        { name: 'verification-before-completion', description: 'Evidence before claims — run verification before any status update', icon: '✅' },
+      ],
       kanban: [
         { name: 'excalidraw', description: 'Excalidraw diagram creation via subagent delegation', icon: '✏️' },
+        { name: 'writing-plans', description: 'Structured implementation planning with decomposition & checkpoints', icon: '📋' },
       ],
       deming: [
         { name: 'excalidraw', description: 'Excalidraw diagram creation via subagent delegation', icon: '✏️' },
+        { name: 'writing-plans', description: 'Structured implementation planning with decomposition & checkpoints', icon: '📋' },
       ],
       ernst: [
         { name: 'hubspot', description: 'HubSpot CRM contacts, deals, companies', icon: '📊' },
+        { name: 'systematic-debugging', description: 'Root cause investigation — communicate bugs with evidence', icon: '🐛' },
+        { name: 'verification-before-completion', description: 'Enforce verification evidence on PR reviews', icon: '✅' },
       ],
     }
   };
