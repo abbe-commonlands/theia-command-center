@@ -379,6 +379,7 @@ function getSkillIcon(name) {
     'next-best-practices': '⚛️',
     'coding-discipline': '🧠',
     'executing-plans': '📋',
+    'excalidraw': '✏️',
   };
   return icons[name] || '🛠️';
 }
@@ -422,8 +423,12 @@ function useStaticSkillsData() {
         { name: 'marketing-mode', description: 'B2B technical marketing playbooks & content strategy', icon: '📣' },
       ],
       zernike: [],
-      kanban: [],
-      deming: [],
+      kanban: [
+        { name: 'excalidraw', description: 'Excalidraw diagram creation via subagent delegation', icon: '✏️' },
+      ],
+      deming: [
+        { name: 'excalidraw', description: 'Excalidraw diagram creation via subagent delegation', icon: '✏️' },
+      ],
       ernst: [
         { name: 'hubspot', description: 'HubSpot CRM contacts, deals, companies', icon: '📊' },
       ],
