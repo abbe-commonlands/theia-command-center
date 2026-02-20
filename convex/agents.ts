@@ -245,12 +245,13 @@ export const seed = mutation({
   args: {},
   handler: async (ctx) => {
     const agents = [
-      { sessionKey: "agent:main:main", name: "Abbe", role: "Squad Lead & Orchestrator", emoji: "🧠", model: "opus" },
-      { sessionKey: "agent:seidel:main", name: "Seidel", role: "Sales & Business Development", emoji: "🎯", model: "sonnet" },
-      { sessionKey: "agent:iris:main", name: "Iris", role: "Marketing & Communications", emoji: "📡", model: "sonnet" },
-      { sessionKey: "agent:zernike:main", name: "Zernike", role: "Software Development", emoji: "💻", model: "sonnet" },
-      { sessionKey: "agent:kanban:main", name: "Kanban", role: "Operations", emoji: "📦", model: "sonnet" },
-      { sessionKey: "agent:deming:main", name: "Deming", role: "Quality Management", emoji: "✅", model: "sonnet" },
+      { sessionKey: "agent:main:main", name: "Abbe", role: "Squad Lead & Orchestrator", emoji: "🧠", model: "codex" },
+      { sessionKey: "agent:seidel:main", name: "Seidel", role: "Sales & Business Development", emoji: "🎯", model: "codex" },
+      { sessionKey: "agent:iris:main", name: "Iris", role: "Marketing & Communications", emoji: "📡", model: "codex" },
+      { sessionKey: "agent:zernike:main", name: "Zernike", role: "Software Development", emoji: "💻", model: "codex" },
+      { sessionKey: "agent:kanban:main", name: "Kanban", role: "Operations", emoji: "📦", model: "codex" },
+      { sessionKey: "agent:deming:main", name: "Deming", role: "Quality Management", emoji: "✅", model: "codex" },
+      { sessionKey: "agent:ernst:main", name: "Ernst", role: "Code Review & PR Gatekeeper", emoji: "🔍", model: "codex" },
     ];
 
     let seededCount = 0;

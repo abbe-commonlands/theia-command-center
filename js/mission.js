@@ -226,7 +226,7 @@
     // Prefer cached agent emojis; fall back to hardcoded map
     const AGENT_ICONS_FALLBACK = {
       'Abbe': '🧠', 'Seidel': '🎯', 'Iris': '📡',
-      'Zernike': '💻', 'Ernst': '📋', 'Kanban': '📦',
+      'Zernike': '💻', 'Ernst': '🔍', 'Kanban': '📦',
       'Deming': '✅', 'Max': '👤',
     };
     // Build icon lookup from cachedAgents when available

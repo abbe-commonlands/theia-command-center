@@ -4,21 +4,20 @@ const SKILLS_CONFIG = {
   sharedPath: '~/.openclaw/skills/',
   globalSkillsPath: '~/openclaw/skills/',
   agents: [
-    { id: 'abbe', name: 'Abbe', emoji: '🧠', workspace: '~/clawd/clawd', color: '#00D4FF', model: 'opus', channel: 'telegram' },
-    { id: 'seidel', name: 'Seidel', emoji: '🎯', workspace: '~/clawd/clawd-seidel', color: '#22C55E', model: 'sonnet', channel: 'telegram' },
-    { id: 'iris', name: 'Iris', emoji: '📡', workspace: '~/clawd/clawd-iris', color: '#A855F7', model: 'sonnet', channel: 'telegram' },
+    { id: 'abbe', name: 'Abbe', emoji: '🧠', workspace: '~/clawd/clawd', color: '#00D4FF', model: 'codex', channel: 'telegram' },
+    { id: 'seidel', name: 'Seidel', emoji: '🎯', workspace: '~/clawd/clawd-seidel', color: '#22C55E', model: 'codex', channel: 'telegram' },
+    { id: 'iris', name: 'Iris', emoji: '📡', workspace: '~/clawd/clawd-iris', color: '#A855F7', model: 'codex', channel: 'telegram' },
     { id: 'zernike', name: 'Zernike', emoji: '💻', workspace: '~/clawd/clawd-zernike', color: '#EC4899', model: 'codex', channel: 'telegram' },
-    { id: 'kanban', name: 'Kanban', emoji: '📦', workspace: '~/clawd/clawd-kanban', color: '#14B8A6', model: 'sonnet', channel: 'telegram' },
-    { id: 'deming', name: 'Deming', emoji: '✅', workspace: '~/clawd/clawd-deming', color: '#6366F1', model: 'sonnet', channel: 'telegram' },
-    { id: 'ernst', name: 'Ernst', emoji: '📧', workspace: '~/clawd/clawd-ernst', color: '#F59E0B', model: 'sonnet', channel: 'telegram' },
+    { id: 'kanban', name: 'Kanban', emoji: '📦', workspace: '~/clawd/clawd-kanban', color: '#14B8A6', model: 'codex', channel: 'telegram' },
+    { id: 'deming', name: 'Deming', emoji: '✅', workspace: '~/clawd/clawd-deming', color: '#6366F1', model: 'codex', channel: 'telegram' },
+    { id: 'ernst', name: 'Ernst', emoji: '🔍', workspace: '~/clawd/clawd-ernst', color: '#F59E0B', model: 'codex', channel: 'telegram' },
   ]
 };
 
 const AVAILABLE_MODELS = [
-  { value: 'opus', label: 'Claude Opus 4.5', color: '#00D4FF' },
-  { value: 'sonnet', label: 'Claude Sonnet 4.5', color: '#A855F7' },
-  { value: 'haiku', label: 'Claude Haiku', color: '#22C55E' },
-  { value: 'codex', label: 'Codex CLI', color: '#F97316' },
+  { value: 'opus', label: 'Claude Opus 4', color: '#00D4FF' },
+  { value: 'sonnet', label: 'Claude Sonnet 4', color: '#A855F7' },
+  { value: 'codex', label: 'GPT-5.3 Codex', color: '#F97316' },
 ];
 
 // Skills data - will be populated by API or file scan
@@ -375,12 +374,17 @@ function getSkillIcon(name) {
     'geo-optimization': '🔍',
     'shopify-marketing-expert': '🛒',
     'vercel-react-best-practices': '⚛️',
+    'hubspot': '📊',
+    'google-ads': '📈',
+    'next-best-practices': '⚛️',
+    'coding-discipline': '🧠',
+    'executing-plans': '📋',
   };
   return icons[name] || '🛠️';
 }
 
 function useStaticSkillsData() {
-  // Static data from installed skills — updated 2026-02-09
+  // Static data from installed skills — updated 2026-02-19
   // Shared: ~/.openclaw/skills/  |  Bundled: ~/openclaw/skills/
   skillsData = {
     shared: [
@@ -390,13 +394,17 @@ function useStaticSkillsData() {
       { name: 'executing-plans', description: 'Execute implementation plans with checkpoints', icon: '📋' },
       { name: 'frontend-design', description: 'Build production-grade UIs', icon: '🎨' },
       { name: 'gitclassic', description: 'Fast GitHub browser for AI agents', icon: '🐙' },
+      { name: 'hubspot', description: 'HubSpot CRM & CMS API integration', icon: '📊' },
+      { name: 'google-ads', description: 'Google Ads campaign audit & optimization', icon: '📈' },
       { name: 'humanizer', description: 'Remove AI writing patterns', icon: '✍️' },
       { name: 'jq-json-processor', description: 'Process JSON with jq', icon: '🔍' },
       { name: 'mineru-pdf', description: 'Parse PDFs to Markdown (OCR)', icon: '📑' },
       { name: 'mission-control', description: 'Wake/sleep lifecycle reporting', icon: '📡' },
+      { name: 'next-best-practices', description: 'Next.js best practices & conventions', icon: '⚛️' },
       { name: 'pptx-creator', description: 'Create PowerPoint presentations', icon: '📊' },
       { name: 'task-system', description: 'Create, move, complete tasks on board', icon: '✅' },
       { name: 'ux-audit', description: 'Automated UX design audits', icon: '👁️' },
+      { name: 'vercel-react-best-practices', description: 'React/Next.js performance optimization', icon: '⚛️' },
       { name: 'xlsx', description: 'Create and analyze Excel spreadsheets', icon: '📈' },
     ],
     perAgent: {
@@ -404,17 +412,21 @@ function useStaticSkillsData() {
       seidel: [
         { name: 'apollo-enrichment', description: 'Apollo.io contact/company enrichment for sales prospecting', icon: '🎯' },
         { name: 'firecrawler', description: 'Web scraping & competitor intelligence via Firecrawl', icon: '🔥' },
+        { name: 'hubspot', description: 'HubSpot CRM contacts, deals, companies', icon: '📊' },
         { name: 'phantombuster', description: 'LinkedIn automation & lead generation', icon: '👻' },
       ],
       iris: [
         { name: 'geo-optimization', description: 'GEO audit, schema markup, llms.txt, AI search monitoring', icon: '🔍' },
-        { name: 'marketing-mode', description: 'B2B technical marketing playbooks & content strategy', icon: '📣' },
+        { name: 'google-ads', description: 'Google Ads campaign audit & optimization', icon: '📈' },
         { name: 'google-analytics', description: 'GA4 + Google Search Console queries & reporting', icon: '📊' },
+        { name: 'marketing-mode', description: 'B2B technical marketing playbooks & content strategy', icon: '📣' },
       ],
       zernike: [],
       kanban: [],
       deming: [],
-      ernst: [],
+      ernst: [
+        { name: 'hubspot', description: 'HubSpot CRM contacts, deals, companies', icon: '📊' },
+      ],
     }
   };
 
