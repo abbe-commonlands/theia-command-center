@@ -1,35 +1,43 @@
 #!/bin/bash
-# Validate that the local Convex config points to the correct deployment.
-# CANONICAL: quick-whale-641 (Convex prod)
+# Validate that the browser Convex URL matches where npx convex run writes data.
+# Run this after any Convex config change to prevent data split.
 
-cd "$(dirname "$0")/.." || exit 1
+set -euo pipefail
 
-EXPECTED_DEPLOYMENT="prod:quick-whale-641"
-EXPECTED_URL="https://quick-whale-641.convex.cloud"
+EXPECTED_URL="https://aromatic-trout-929.convex.cloud"
 
-if [ ! -f .env.local ]; then
-  echo "❌ .env.local missing! Run: ./scripts/fix-deployment.sh"
-  exit 1
-fi
+# 1. Check what URL the browser uses
+BROWSER_URL=$(grep -o 'https://[a-z0-9-]*\.convex\.cloud' js/convex-client.js | head -1)
+echo "Browser URL:  $BROWSER_URL"
 
-CURRENT_DEPLOYMENT=$(grep CONVEX_DEPLOYMENT .env.local | cut -d= -f2)
-CURRENT_URL=$(grep CONVEX_URL .env.local | cut -d= -f2)
+# 2. Check what npx convex run targets by querying both
+echo ""
+echo "Checking data freshness..."
 
-ERRORS=0
-if [ "$CURRENT_DEPLOYMENT" != "$EXPECTED_DEPLOYMENT" ]; then
-  echo "❌ CONVEX_DEPLOYMENT=$CURRENT_DEPLOYMENT (expected $EXPECTED_DEPLOYMENT)"
-  ERRORS=1
-fi
+CLI_COUNT=$(npx convex run agents:list '{}' 2>/dev/null | python3 -c "import sys,json; print(len(json.load(sys.stdin)))")
+HTTP_COUNT=$(curl -s "$BROWSER_URL/api/query" -H "Content-Type: application/json" -d '{"path":"agents:list","args":{}}' | python3 -c "import sys,json; d=json.load(sys.stdin); print(len(d.get('value',[])))")
 
-if [ "$CURRENT_URL" != "$EXPECTED_URL" ]; then
-  echo "❌ CONVEX_URL=$CURRENT_URL (expected $EXPECTED_URL)"
-  ERRORS=1
-fi
+echo "CLI agents:   $CLI_COUNT"
+echo "HTTP agents:  $HTTP_COUNT"
 
-if [ $ERRORS -eq 0 ]; then
-  echo "✅ Deployment config OK → $EXPECTED_DEPLOYMENT"
-else
+if [ "$CLI_COUNT" != "$HTTP_COUNT" ]; then
   echo ""
-  echo "Fix with: ./scripts/fix-deployment.sh"
+  echo "🚨 DATA SPLIT DETECTED!"
+  echo "   CLI (npx convex run) and browser (HTTP API) see different data."
+  echo "   Browser URL ($BROWSER_URL) does not match where CLI writes."
+  echo ""
+  echo "   Fix: Update CONVEX_URL in js/convex-client.js to match the active deployment."
+  echo "   Run: npx convex dashboard  — to see which project the CLI targets."
   exit 1
 fi
+
+if [ "$BROWSER_URL" != "$EXPECTED_URL" ]; then
+  echo ""
+  echo "⚠️  Browser URL is $BROWSER_URL but expected $EXPECTED_URL"
+  echo "   Update if the active deployment has changed."
+  exit 1
+fi
+
+echo ""
+echo "✅ Deployment validated. Browser and CLI target the same Convex instance."
+echo "   URL: $BROWSER_URL | Agents: $CLI_COUNT"

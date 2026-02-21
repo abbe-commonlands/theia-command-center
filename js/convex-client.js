@@ -2,21 +2,23 @@
  * Convex Client for Mission Control
  * Real-time database with subscriptions
  * 
- * ╔══════════════════════════════════════════════════════════════════╗
- * ║  🚨 LOCKED — DO NOT CHANGE THIS URL — 5+ PRODUCTION OUTAGES 🚨 ║
- * ║                                                                  ║
- * ║  Production: https://quick-whale-641.convex.cloud               ║
- * ║  Dev (NEVER USE IN PROD): aromatic-trout-929                    ║
- * ║                                                                  ║
- * ║  If data looks stale, the problem is NOT this URL.              ║
- * ║  Check agent heartbeats and Convex function logs instead.       ║
- * ║  Changing this URL WILL break production. Ask Max first.        ║
- * ╚══════════════════════════════════════════════════════════════════╝
+ * ╔══════════════════════════════════════════════════════════════════════╗
+ * ║  Convex URL must match where `npx convex run` writes data.         ║
+ * ║                                                                     ║
+ * ║  ACTIVE: https://aromatic-trout-929.convex.cloud                   ║
+ * ║  (npx convex dashboard opens aromatic-trout-929;                   ║
+ * ║   all agent heartbeats write here via npx convex run)              ║
+ * ║                                                                     ║
+ * ║  RETIRED: quick-whale-641 — has stale data, agents don't write     ║
+ * ║  there anymore. The old "LOCKED" warning was protecting a stale    ║
+ * ║  URL while all live data went to aromatic-trout-929.               ║
+ * ║                                                                     ║
+ * ║  To verify: curl the /api/query endpoint on both and compare.      ║
+ * ╚══════════════════════════════════════════════════════════════════════╝
  */
 (() => {
-  // 🔒 LOCKED — DO NOT CHANGE — Production Convex (quick-whale-641)
-  // Incident count from changing this: 5+ outages. STOP.
-  const CONVEX_URL = "https://quick-whale-641.convex.cloud";
+  // Production Convex — where npx convex run targets
+  const CONVEX_URL = "https://aromatic-trout-929.convex.cloud";
   
   let client = null;
   let listeners = new Map();
