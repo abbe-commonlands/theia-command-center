@@ -194,15 +194,24 @@
     const container = $("#activity-sidebar");
     if (!container) return;
 
-    // Ensure activities are loaded (ActivityLog may not have initialized yet)
+    // Try ActivityLog first, but fall back to direct Convex query
+    // This avoids the race condition where Mission.init() renders the sidebar
+    // before ActivityLog.init() has loaded data from Convex
+    let data = [];
     if (window.ActivityLog && window.ActivityLog.getData) {
-      const existing = window.ActivityLog.getData();
-      if (existing.length === 0 && window.ActivityLog.load) {
-        await window.ActivityLog.load();
+      data = window.ActivityLog.getData();
+    }
+    if (data.length === 0 && window.Convex && window.Convex.isReady && window.Convex.isReady()) {
+      try {
+        data = await window.Convex.activities.list(100);
+        // Backfill ActivityLog so subsequent renders don't re-fetch
+        if (window.ActivityLog && window.ActivityLog.setData) {
+          window.ActivityLog.setData(data);
+        }
+      } catch (e) {
+        console.warn("Direct Convex activity fetch failed:", e);
       }
     }
-
-    const data = (window.ActivityLog && window.ActivityLog.getData) ? window.ActivityLog.getData() : [];
     const recent = data.slice(0, 50);
 
     if (recent.length === 0) {
@@ -1278,6 +1287,13 @@
     if (useConvex) {
       showToast("🔴 Live: Real-time sync enabled", "success");
     }
+
+    // Safety re-render after 3s to catch any init race conditions
+    // (ActivityLog may not have been ready during initial renderActivityCompact)
+    setTimeout(() => {
+      renderActivityCompact();
+      renderAgents();
+    }, 3000);
   }
 
   /** Refresh all data (tasks, agents, activity sidebar). */
