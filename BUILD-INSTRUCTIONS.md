@@ -1,100 +1,142 @@
-# Abbe Command Center — Build Instructions for Codex
+# Build & Deploy Instructions
 
-## Simplified Approach
+## Prerequisites
+- Node.js 18+
+- Convex account (convex.dev)
+- Vercel account (or any static host)
 
-Build a **standalone web application** first. We'll wrap it in Tauri later.
-
-## Stack
-- **Vanilla HTML/CSS/JS** (or React if faster for you)
-- **IndexedDB** for local storage (no server needed)
-- **Tailwind via CDN** for styling
-- Single HTML file that can be opened directly in browser
-
-## What to Build
-
-### File Structure
-```
-abbe-command-center/
-├── index.html          # Main app entry
-├── css/
-│   └── styles.css      # Custom styles (Tailwind via CDN in HTML)
-├── js/
-│   ├── app.js          # Main app logic, routing
-│   ├── db.js           # IndexedDB wrapper
-│   ├── memory-viz.js   # Memory visualization screen
-│   ├── mission.js      # Mission Control screen
-│   └── components.js   # Reusable UI components
-└── SPEC.md             # Full specification (already exists)
-```
-
-### Screen 1: Memory Visualization
-
-Parse these paths (hardcoded for now, user can configure later):
-- `~/clawd/MEMORY.md`
-- `~/clawd/memory/*.md`
-
-Since this is a web app without file system access, provide a **file upload** option or **paste text** area for now. 
-
-Display memories as:
-- Clustered cards (group by date or keyword)
-- Filter by type (Decision, Learning, Fix, Entity)
-- Search box
-- Click to expand detail
-
-### Screen 2: Mission Control
-
-Use IndexedDB with these object stores:
-- `agents`
-- `tasks`
-- `messages`
-- `activities`
-- `documents`
-
-**On first load, seed the agents:**
-
-```javascript
-const DEFAULT_AGENTS = [
-  { id: 'abbe', name: 'Abbe', role: 'Squad Lead / Orchestrator', sessionKey: 'agent:main:main', icon: '🧠', status: 'idle' },
-  { id: 'seidel', name: 'Seidel', role: 'Sales Operations', sessionKey: 'agent:sales:main', icon: '💼', status: 'idle' },
-  { id: 'iris', name: 'Iris', role: 'Marketing Specialist', sessionKey: 'agent:marketing:main', icon: '🎨', status: 'idle' },
-  { id: 'theia', name: 'Theia', role: 'Engineering / Optical Design', sessionKey: 'agent:engineering:main', icon: '🔬', status: 'idle' },
-  { id: 'photon', name: 'Photon', role: 'Operations / Data Processing', sessionKey: 'agent:operations:main', icon: '⚡', status: 'idle' },
-  { id: 'zernike', name: 'Zernike', role: 'Software Development', sessionKey: 'agent:softwaredeveloper:main', icon: '💻', status: 'idle' },
-];
-```
-
-**UI Components:**
-1. Agent cards grid (shows all 6 agents with status)
-2. Task board (Kanban: Inbox → Assigned → In Progress → Review → Done)
-3. Task detail modal (edit, assign, comment)
-4. Activity feed sidebar
-5. Create task button/modal
-
-### Navigation
-
-Tab bar at top:
-- [🧠 Memory] [🎯 Mission Control]
-
-### Styling
-
-- Dark theme (black/dark gray background, white text)
-- Cards with subtle borders and shadows
-- Accent color: blue/cyan for active elements
-- Use CSS Grid for layouts
-
-## Deliverable
-
-A complete, working single-page web app:
-1. Can be opened directly via `open index.html` or `npx serve .`
-2. Both screens fully functional
-3. IndexedDB persistence (data survives page refresh)
-4. Clean, professional design (follow frontend-design skill guidelines)
-5. No placeholder code — everything works
-
-## Run Locally
+## Setup
 
 ```bash
-cd ~/clawd/projects/abbe-command-center
-npx serve .
-# or just: open index.html
+# 1. Install dependencies
+npm install
+
+# 2. Initialize Convex project (creates convex.json with your deployment URL)
+npx convex dev
+# Follow prompts → creates a new Convex project
+# Copy the deployment URL shown (https://xxx.convex.cloud)
+
+# 3. Update index.html with your Convex URL
+# In index.html, add before </body>:
+# <script>window.CONVEX_URL = "https://YOUR_URL.convex.cloud";</script>
+# OR set it in app.js: const CONVEX_URL = "https://YOUR_URL.convex.cloud";
+
+# 4. Deploy Convex schema + functions
+npx convex deploy
+```
+
+## Local Dev
+
+```bash
+npx convex dev   # runs Convex locally + watches for changes
+# open index.html in browser (or use a local server)
+python -m http.server 8080   # serve index.html locally
+```
+
+## Seed Data
+
+After deploying Convex, run the seed script to register the three agents:
+
+```bash
+node scripts/seed-agents.js
+```
+
+Or manually via Convex dashboard, insert into `agents`:
+```json
+[
+  { "name": "Theia",  "role": "Optical Design Lead",    "emoji": "🔭", "status": "idle", "sessionKey": "agent:main:main",   "model": "claude-sonnet-4-6" },
+  { "name": "Photon", "role": "Optimization & Patents", "emoji": "⚡", "status": "idle", "sessionKey": "agent:photon:main", "model": "claude-sonnet-4-6" },
+  { "name": "Quark",  "role": "Zemax Automation",       "emoji": "🔬", "status": "idle", "sessionKey": "agent:quark:main",  "model": "gpt-5.3-codex" }
+]
+```
+
+## Vercel Deploy
+
+```bash
+# Push to GitHub, connect repo to Vercel
+# Vercel settings: Framework = Other, Output = root directory
+# No build command needed (static site)
+```
+
+## Agent Integration (OpenClaw)
+
+Agents update their status via Convex mutations. Key calls:
+
+```python
+# Theia — update design performance after optimization
+import requests
+CONVEX_URL = "https://YOUR_URL.convex.cloud"
+
+# Via Convex HTTP API
+requests.post(f"{CONVEX_URL}/api/mutation", json={
+  "path": "lensDesigns/updatePerformance",
+  "args": {
+    "id": "<designId>",
+    "currentMFValue": 0.0234,
+    "rmsSpotUm": 3.2,
+    "zemaxFile": "C:/designs/DSL952_v3.zmx"
+  }
+})
+
+# Photon — log optimization run completion
+requests.post(f"{CONVEX_URL}/api/mutation", json={
+  "path": "optimizationRuns/complete",
+  "args": {
+    "id": "<runId>",
+    "status": "converged",
+    "mfValueAfter": 0.0234,
+    "rmsSpotAfter": 3.2,
+    "iterationsCount": 147,
+    "outputSummary": "Converged on retrofocus zone. TTL within budget."
+  }
+})
+
+# Quark — log tolerance analysis
+requests.post(f"{CONVEX_URL}/api/mutation", json={
+  "path": "toleranceAnalyses/create",
+  "args": {
+    "designId": "<designId>",
+    "designName": "DSL952 Wide-Angle M12",
+    "runBy": "<quarkAgentId>",
+    "runByName": "Quark",
+    "yieldPercent": 94.2,
+    "mfgRisk": "medium",
+    "recommendation": "Tighten element 3 tilt tolerance."
+  }
+})
+```
+
+## File Structure
+
+```
+theia-command-center/
+├── index.html              ← Main app shell, 7 tabs
+├── css/styles.css          ← Precision dark theme
+├── js/
+│   ├── app.js              ← Tab router, Convex init, DB proxy
+│   ├── mission.js          ← Mission Control (agents + tasks)
+│   ├── lens-library.js     ← Lens design catalog
+│   ├── patent-map.js       ← Patent landscape
+│   ├── optimization-log.js ← Zemax run history
+│   ├── tolerance-tracker.js← Tolerance analyses
+│   ├── memory-browser.js   ← Agent memories
+│   ├── log.js              ← Activity feed
+│   ├── documents.js        ← Documents tab
+│   ├── notifications.js    ← Notification bell
+│   └── convex-client.js    ← Convex SDK loader
+├── convex/
+│   ├── schema.ts           ← Full schema (optical + agent tables)
+│   ├── lensDesigns.ts      ← Design CRUD + queries
+│   ├── optimizationRuns.ts ← Optimization run tracking
+│   ├── toleranceAnalyses.ts← Tolerance analysis results
+│   ├── patents.ts          ← Patent catalog + coverage heatmap
+│   ├── glassSelections.ts  ← Glass map per design
+│   ├── agents.ts           ← Agent registry + status
+│   ├── tasks.ts            ← Task management
+│   ├── activities.ts       ← Activity feed
+│   ├── documents.ts        ← Document storage
+│   ├── memories.ts         ← Agent memory sync
+│   ├── notifications.ts    ← Notification delivery
+│   └── sessionHistory.ts   ← Session wake/sleep tracking
+└── BUILD-INSTRUCTIONS.md   ← This file
 ```

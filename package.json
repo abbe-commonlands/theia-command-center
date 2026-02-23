@@ -1,17 +1,17 @@
 {
-  "name": "abbe-command-center",
+  "name": "theia-command-center",
   "version": "1.0.0",
-  "description": "",
+  "description": "Optical engineering command center for Theia, Photon, and Quark",
   "main": "index.js",
   "scripts": {
-    "test": "echo \"Error: no test specified\" && exit 1"
+    "dev": "npx convex dev",
+    "deploy": "npx convex deploy"
   },
-  "keywords": [],
-  "author": "",
+  "keywords": ["optics", "lens-design", "zemax", "machine-vision"],
+  "author": "Commonlands LLC",
   "license": "ISC",
   "type": "commonjs",
   "dependencies": {
-    "better-sqlite3": "^12.6.2",
     "convex": "^1.31.7"
   },
   "devDependencies": {

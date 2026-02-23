@@ -1,1314 +1,313 @@
-(() => {
-  const STATUS_COLUMNS = ["inbox", "assigned", "in_progress", "review", "done"];
-  const STATUS_LABELS = {
-    inbox: "Inbox",
-    assigned: "Assigned",
-    in_progress: "In Progress",
-    review: "Review",
-    done: "Done",
-  };
-  const PRIORITY_COLORS = {
-    1: "badge-neutral",
-    2: "badge-neutral",
-    3: "badge-neutral",
-    4: "badge-cyan",
-    5: "badge-cyan",
-    6: "badge-cyan",
-    7: "badge-amber",
-    8: "badge-amber",
-    9: "badge-red",
-    10: "badge-red",
-  };
+// ── Mission Control Tab ──────────────────────────────────────────────────
+// Agent squad sidebar, kanban task board, task detail panel.
 
-  let cachedAgents = [];
-  let cachedTasks = [];
-  let editingTaskId = null;
-  let draggedTask = null;
-  let useConvex = false;
+(function() {
+  "use strict";
 
-  /** @param {string} selector - CSS selector @returns {HTMLElement|null} */
-  function $(selector) {
-    return document.querySelector(selector);
+  let agents = [];
+  let tasks  = [];
+  let selectedTaskId = null;
+
+  function escHtml(s) {
+    if (!s) return "";
+    return String(s).replace(/&/g,"&amp;").replace(/</g,"&lt;").replace(/>/g,"&gt;");
+  }
+  function timeAgo(ts) {
+    if (!ts) return "";
+    const mins = Math.floor((Date.now() - ts) / 60000);
+    if (mins < 1) return "just now";
+    if (mins < 60) return `${mins}m ago`;
+    const hrs = Math.floor(mins / 60);
+    if (hrs < 24) return `${hrs}h ago`;
+    return `${Math.floor(hrs / 24)}d ago`;
   }
 
-  /** Create a DOM element with optional class and innerHTML. */
-  function createEl(tag, className, html) {
-    const el = document.createElement(tag);
-    if (className) el.className = className;
-    if (html) el.innerHTML = html;
-    return el;
-  }
-
-  /** Escape HTML to prevent XSS. */
-  function escapeHtml(text) {
-    const div = document.createElement("div");
-    div.textContent = text || "";
-    return div.innerHTML;
-  }
-
-  /** Get the active database interface (Convex when available, otherwise IndexedDB). */
-  function getDB() {
-    if (useConvex && window.Convex) {
-      return window.Convex;
-    }
-    return window.DB;
-  }
-
-  // ============ Real-Time Subscriptions ============
-
-  /** Set up Convex real-time subscriptions for agents, tasks, and activities. */
-  function setupRealtimeSubscriptions() {
-    if (!window.Convex) return;
-
-    // Subscribe to agents changes
-    window.Convex.agents.onChange((agents) => {
-      console.log("🔄 Agents updated (real-time):", agents.length);
-      cachedAgents = agents;
-      renderAgents();
-      populateAssigneeSelect();
-    });
-
-    // Subscribe to tasks changes
-    window.Convex.tasks.onChange((tasks) => {
-      console.log("🔄 Tasks updated (real-time):", tasks.length);
-      cachedTasks = tasks;
-      renderKanban();
-      updateTaskCount();
-    });
-
-    // Subscribe to activities for compact sidebar
-    if (window.Convex.activities && window.Convex.activities.onChange) {
-      window.Convex.activities.onChange((activities) => {
-        // Update ActivityLog's internal data so sidebar reads fresh data
-        if (window.ActivityLog && window.ActivityLog.setData) {
-          window.ActivityLog.setData(activities);
-        }
-        renderActivityCompact();
-      });
-    }
-    window.addEventListener("convex:activities", (e) => {
-      if (window.ActivityLog && window.ActivityLog.setData) {
-        window.ActivityLog.setData(e.detail || []);
-      }
-      renderActivityCompact();
-    });
-
-    // Also listen for custom events (backup)
-    window.addEventListener("convex:agents", (e) => {
-      cachedAgents = e.detail || [];
-      renderAgents();
-      populateAssigneeSelect();
-    });
-
-    window.addEventListener("convex:tasks", (e) => {
-      cachedTasks = e.detail || [];
-      renderKanban();
-      updateTaskCount();
-    });
-  }
-
-  // ============ Agents ============
-
-  /** Load all agents from the database and render them. */
-  async function loadAgents() {
-    const db = getDB();
-    if (!db) return;
-    
-    try {
-      cachedAgents = await db.agents.list();
-      renderAgents();
-      populateAssigneeSelect();
-    } catch (err) {
-      console.error("Failed to load agents:", err);
-      showToast("Failed to load agents", "error");
-    }
-  }
-
-  /** Render the compact agent sidebar cards with enhanced context meters. */
+  // ── Agent sidebar ────────────────────────────────────────────────
   function renderAgentsCompact() {
-    const container = $("#agent-sidebar");
-    if (!container) return;
-    container.innerHTML = "";
+    const list = document.getElementById("agents-compact-list");
+    const countEl = document.getElementById("agent-count");
+    if (!list) return;
 
-    cachedAgents.forEach((agent) => {
-      const card = createEl("div", "agent-card-compact");
-      card.dataset.id = agent._id || agent.id;
+    countEl && (countEl.textContent = `${agents.length} agent${agents.length !== 1 ? "s" : ""}`);
 
-      const contextPercent = agent.contextPercent || 0;
-      const contextColor = contextPercent >= 80 ? "var(--accent-red)" :
-                           contextPercent >= 60 ? "var(--accent-amber)" :
-                           "var(--accent-green)";
-
-      // Session duration
-      let sessionLabel = "";
-      if (agent.status === "active" && agent.lastActiveAt) {
-        const mins = Math.floor((Date.now() - agent.lastActiveAt) / 60000);
-        sessionLabel = mins < 60
-          ? `Active ${mins}m`
-          : `Active ${Math.floor(mins / 60)}h`;
-      } else if (agent.lastSleepAt) {
-        sessionLabel = `Slept ${formatTimeAgo(agent.lastSleepAt)}`;
-      } else if (agent.lastActiveAt) {
-        sessionLabel = formatTimeAgo(agent.lastActiveAt);
-      } else {
-        sessionLabel = "never";
-      }
-
-      // Find last action for this agent from activity feed
-      const agentId = agent._id || agent.id;
-      const allActivities = (window.ActivityLog && window.ActivityLog.getData) ? window.ActivityLog.getData() : [];
-      const lastActivity = allActivities.find(a => a.agentId === agentId || a.agentName === agent.name);
-      const lastAction = lastActivity ? escapeHtml(lastActivity.message.slice(0, 40)) : "";
-
-      const contextBar = `
-        <div class="agent-compact-context-row">
-          <div class="agent-compact-context">
-            <div class="agent-compact-context-bar" style="width:${contextPercent}%;background:${contextColor};"></div>
-          </div>
-          <span class="agent-compact-ctx-pct" style="color:${contextColor};">${contextPercent > 0 ? contextPercent + "%" : ""}</span>
-        </div>`;
-
-      card.innerHTML = `
-        <span class="agent-compact-emoji">${agent.emoji || "🤖"}</span>
-        <div class="agent-compact-info">
-          <div class="agent-compact-name-row">
-            <span class="agent-compact-name">${agent.name}</span>
-            <span class="agent-compact-expand">›</span>
-          </div>
-          <div class="agent-compact-status">
-            <span class="status-dot ${agent.status || "idle"}"></span>
-            <span>${sessionLabel}</span>
-          </div>
-          ${contextBar}
-          ${lastAction ? `<div class="agent-compact-last-action">${lastAction}</div>` : ""}
-        </div>
-      `;
-
-      card.addEventListener("click", () => openAgentSession(agent));
-      container.appendChild(card);
-    });
-  }
-
-  /** Render the compact activity feed in the sidebar using ActivityLog data. */
-  async function renderActivityCompact() {
-    const container = $("#activity-sidebar");
-    if (!container) return;
-
-    // Try ActivityLog first, but fall back to direct Convex query
-    // This avoids the race condition where Mission.init() renders the sidebar
-    // before ActivityLog.init() has loaded data from Convex
-    let data = [];
-    if (window.ActivityLog && window.ActivityLog.getData) {
-      data = window.ActivityLog.getData();
-    }
-    if (data.length === 0 && window.Convex && window.Convex.isReady && window.Convex.isReady()) {
-      try {
-        data = await window.Convex.activities.list(100);
-        // Backfill ActivityLog so subsequent renders don't re-fetch
-        if (window.ActivityLog && window.ActivityLog.setData) {
-          window.ActivityLog.setData(data);
-        }
-      } catch (e) {
-        console.warn("Direct Convex activity fetch failed:", e);
-      }
-    }
-    const recent = data.slice(0, 50);
-
-    if (recent.length === 0) {
-      container.innerHTML = '<div class="activity-compact-empty">No activity yet</div>';
+    if (!agents.length) {
+      list.innerHTML = `<div style="font-size:11px;color:var(--text-muted);padding:8px">No agents registered</div>`;
       return;
     }
-
-    const EVENT_VERBS = {
-      task_created: "created",
-      task_assigned: "assigned",
-      task_moved: "moved",
-      task_completed: "completed",
-      task_verified: "verified",
-      task_rejected: "returned",
-      message_sent: "commented on",
-      document_created: "published",
-      agent_status_changed: "status →",
-      agent_message: "messaged",
-    };
-
-    // Prefer cached agent emojis; fall back to hardcoded map
-    const AGENT_ICONS_FALLBACK = {
-      'Abbe': '🧠', 'Seidel': '🎯', 'Iris': '📡',
-      'Zernike': '💻', 'Ernst': '🔍', 'Kanban': '📦',
-      'Deming': '✅', 'Max': '👤',
-    };
-    // Build icon lookup from cachedAgents when available
-    const AGENT_ICONS = {};
-    cachedAgents.forEach(a => { AGENT_ICONS[a.name] = a.emoji || AGENT_ICONS_FALLBACK[a.name] || '❓'; });
-    // Merge fallback for agents not yet in cache
-    Object.keys(AGENT_ICONS_FALLBACK).forEach(k => { if (!AGENT_ICONS[k]) AGENT_ICONS[k] = AGENT_ICONS_FALLBACK[k]; });
-
-    container.innerHTML = recent.map(a => {
-      const name = a.agentName || a.agent_id || "unknown";
-      const icon = AGENT_ICONS[name] || "❓";
-      const verb = EVENT_VERBS[a.type] || a.type;
-      const title = a.taskTitle ? `"${escapeHtml(a.taskTitle.slice(0, 30))}"` : (a.message ? escapeHtml(a.message.slice(0, 30)) : "");
-      const ts = a._creationTime || (a.created_at ? a.created_at * 1000 : Date.now());
-      const diffMs = Date.now() - ts;
-      const mins = Math.floor(diffMs / 60000);
-      const hours = Math.floor(mins / 60);
-      const time = mins < 1 ? "now" : mins < 60 ? `${mins}m` : hours < 24 ? `${hours}h` : new Date(ts).toLocaleDateString();
-
-      return `<div class="activity-compact-item">
-        ${icon} <span class="activity-compact-agent">${escapeHtml(name)}</span> ${verb} <span class="activity-compact-task">${title}</span> <span class="activity-compact-time">• ${time}</span>
-      </div>`;
-    }).join("");
-  }
-
-  /** Render full agent cards in the grid and compact sidebar. */
-  function renderAgents() {
-    const container = $("#agent-grid");
-    if (!container) return;
-    container.innerHTML = "";
-    renderAgentsCompact();
-
-    cachedAgents.forEach((agent) => {
-      const card = createEl("div", "agent-card");
-      card.dataset.id = agent._id || agent.id;
-      
-      // Add status-based classes
-      if (agent.status === "active") card.classList.add("working");
-      if (agent.status === "blocked") card.classList.add("blocked");
-      
-      // Find current task
-      let currentTaskHtml = "";
-      if (agent.currentTaskId) {
-        const currentTask = cachedTasks.find(t => (t._id || t.id) === agent.currentTaskId);
-        if (currentTask) {
-          currentTaskHtml = `
-            <div class="agent-current-task">
-              <strong>Working:</strong> ${escapeHtml(currentTask.title.slice(0, 30))}${currentTask.title.length > 30 ? '...' : ''}
-            </div>
-          `;
-        }
-      } else if (agent.status === "active") {
-        // Find any in_progress task assigned to this agent
-        const agentId = agent._id || agent.id;
-        const activeTask = cachedTasks.find(t => 
-          t.status === "in_progress" && t.assigneeIds?.includes(agentId)
-        );
-        if (activeTask) {
-          currentTaskHtml = `
-            <div class="agent-current-task">
-              <strong>Working:</strong> ${escapeHtml(activeTask.title.slice(0, 30))}${activeTask.title.length > 30 ? '...' : ''}
-            </div>
-          `;
-        }
-      }
-      
-      // Context usage display
-      const contextPercent = agent.contextPercent || 0;
-      const contextColor = contextPercent >= 80 ? 'var(--accent-red)' : 
-                          contextPercent >= 50 ? 'var(--accent-amber)' : 
-                          'var(--accent-green)';
-      const contextBar = agent.contextUsed ? `
-        <div style="margin-top: var(--space-xs); width: 100%;">
-          <div style="display: flex; justify-content: space-between; font-size: 10px; color: var(--text-muted); margin-bottom: 2px;">
-            <span>Context</span>
-            <span style="color: ${contextColor};">${contextPercent}%</span>
-          </div>
-          <div style="height: 4px; background: var(--bg-primary); border-radius: 2px; overflow: hidden;">
-            <div style="height: 100%; width: ${contextPercent}%; background: ${contextColor}; transition: width 0.3s;"></div>
-          </div>
-        </div>
-      ` : '';
-      
-      // Last active time
-      const lastActive = agent.lastActiveAt ? formatTimeAgo(agent.lastActiveAt) : 'never';
-      
-      card.innerHTML = `
-        <div class="agent-icon">${agent.emoji || "🤖"}</div>
-        <div class="agent-name">${agent.name}</div>
-        <div class="agent-role">${agent.role}</div>
-        <div class="agent-status">
-          <span class="status-dot ${agent.status || "idle"}"></span>
-          <span>${agent.status || "idle"}</span>
-        </div>
-        <div class="agent-last-seen" style="font-size: 10px; color: var(--text-muted); margin-top: 2px;">
-          Last seen: ${lastActive}
-        </div>
-        <div style="margin-top: var(--space-xs); font-size: 10px; color: var(--text-muted);">
-          <span style="color: var(--accent-cyan);">${agent.model || "sonnet"}</span>
-        </div>
-        ${currentTaskHtml}
-        ${contextBar}
-      `;
-      
-      card.addEventListener("click", () => openAgentSession(agent));
-      container.appendChild(card);
-    });
-  }
-  
-  function formatTimeAgo(timestamp) {
-    if (!timestamp) return "never";
-    const diffMs = Date.now() - timestamp;
-    const diffMins = Math.floor(diffMs / 60000);
-    const diffHours = Math.floor(diffMs / 3600000);
-    
-    if (diffMins < 1) return "just now";
-    if (diffMins < 60) return `${diffMins}m ago`;
-    if (diffHours < 24) return `${diffHours}h ago`;
-    return new Date(timestamp).toLocaleDateString();
-  }
-
-  /** Build a sparkline SVG from an array of percentage values (0-100). */
-  function buildSparkline(values) {
-    if (!values || values.length === 0) return '<span style="color:var(--text-muted);font-size:11px;">no data</span>';
-    const W = 120, H = 28, pad = 2;
-    const max = 100;
-    const step = values.length > 1 ? (W - pad * 2) / (values.length - 1) : 0;
-    const pts = values.map((v, i) => {
-      const x = pad + i * step;
-      const y = H - pad - ((v / max) * (H - pad * 2));
-      return `${x.toFixed(1)},${y.toFixed(1)}`;
-    }).join(" ");
-    const colorLast = values[values.length - 1] >= 80 ? "#e07070" : values[values.length - 1] >= 60 ? "#d4a44c" : "#5ba85a";
-    return `<svg width="${W}" height="${H}" viewBox="0 0 ${W} ${H}" style="vertical-align:middle;">
-      <polyline points="${pts}" fill="none" stroke="${colorLast}" stroke-width="1.5" stroke-linejoin="round" stroke-linecap="round"/>
-      <circle cx="${(pad + (values.length - 1) * step).toFixed(1)}" cy="${(H - pad - ((values[values.length-1]/max) * (H - pad*2))).toFixed(1)}" r="2.5" fill="${colorLast}"/>
-    </svg>`;
-  }
-
-  /** Open a modal showing enhanced agent details: session history, action timeline, context sparkline. */
-  async function openAgentSession(agent) {
-    const modal = $("#task-modal");
-    const title = $("#modal-title");
-    const form = $("#task-form");
-    const footer = $(".modal-footer");
-    
-    title.textContent = `${agent.emoji} ${agent.name} — Session Dashboard`;
-    
-    const agentId = agent._id || agent.id;
-    const contextPercent = agent.contextPercent || 0;
-    const contextUsed = agent.contextUsed || 0;
-    const contextCap = agent.contextCap || 200000;
-    const contextColor = contextPercent >= 80 ? 'var(--accent-red)' :
-                         contextPercent >= 60 ? 'var(--accent-amber)' :
-                         'var(--accent-green)';
-
-    // Show loading skeleton
-    form.innerHTML = `<div style="color:var(--text-muted);padding:var(--space-md);">Loading session data…</div>`;
-    footer.innerHTML = `<button type="button" class="btn btn-secondary" id="modal-cancel">Close</button>`;
-    modal.classList.add("open");
-    if ($("#modal-cancel")) $("#modal-cancel").addEventListener("click", closeTaskModal);
-
-    // Fetch session history and agent activities in parallel
-    let sessions = [], agentActivities = [];
-    try {
-      if (window.Convex) {
-        [sessions, agentActivities] = await Promise.all([
-          window.Convex.sessionHistory.listByAgent(agentId, 14),
-          window.Convex.activities.listByAgent(agentId),
-        ]);
-      }
-    } catch (e) {
-      console.warn("Could not load session data:", e);
-    }
-
-    // Build context sparkline from session history
-    const sparkValues = sessions
-      .filter(s => s.contextPercent != null)
-      .slice(0, 10)
-      .reverse()
-      .map(s => s.contextPercent);
-    if (contextPercent > 0 && (sparkValues.length === 0 || sparkValues[sparkValues.length - 1] !== contextPercent)) {
-      sparkValues.push(contextPercent);
-    }
-    const sparkline = buildSparkline(sparkValues);
-
-    // Active tasks
-    const agentTasks = cachedTasks.filter(t =>
-      t.assigneeIds?.includes(agentId) && t.status !== 'done'
-    );
-
-    const lastSleep = agent.lastSleepAt ? new Date(agent.lastSleepAt).toLocaleString() : 'Never';
-
-    // Format session history rows
-    const sessionRows = sessions.length === 0
-      ? `<tr><td colspan="4" style="color:var(--text-muted);font-size:11px;padding:8px;">No session history yet</td></tr>`
-      : sessions.slice(0, 10).map(s => {
-          const start = new Date(s.startedAt).toLocaleString([], {month:'numeric',day:'numeric',hour:'2-digit',minute:'2-digit'});
-          const durationMs = s.endedAt ? (s.endedAt - s.startedAt) : (Date.now() - s.startedAt);
-          const dur = durationMs < 3600000
-            ? `${Math.round(durationMs / 60000)}m`
-            : `${(durationMs / 3600000).toFixed(1)}h`;
-          const ctx = s.contextPercent != null ? `${s.contextPercent}%` : '—';
-          const note = s.workingOn ? escapeHtml(s.workingOn.slice(0, 35)) : (s.endedAt ? '—' : '<em>in progress</em>');
-          return `<tr>
-            <td style="color:var(--text-muted)">${start}</td>
-            <td>${dur}</td>
-            <td style="color:${(s.contextPercent||0)>=80?'var(--accent-red)':(s.contextPercent||0)>=60?'var(--accent-amber)':'var(--accent-green)'}">${ctx}</td>
-            <td style="font-size:10px;color:var(--text-secondary)">${note}</td>
-          </tr>`;
-        }).join('')
-
-    // Format action timeline
-    const timelineRows = agentActivities.length === 0
-      ? `<div style="color:var(--text-muted);font-size:11px;">No recent actions</div>`
-      : agentActivities.slice(0, 20).map(a => {
-          const ts = a._creationTime || Date.now();
-          const time = formatTimeAgo(ts);
-          return `<div style="display:flex;gap:8px;padding:4px 0;border-bottom:1px solid var(--border-subtle);font-size:11px;">
-            <span style="color:var(--text-muted);flex-shrink:0;min-width:52px">${time}</span>
-            <span style="color:var(--text-secondary)">${escapeHtml(a.message.slice(0, 60))}</span>
-          </div>`;
-        }).join('');
-
-    const tableStyle = `width:100%;border-collapse:collapse;font-size:11px;`;
-    const thStyle = `text-align:left;padding:4px 6px;color:var(--text-muted);border-bottom:1px solid var(--border-subtle);`;
-    const tdStyle = `padding:4px 6px;`;
-
-    form.innerHTML = `
-      <div style="display:flex;flex-direction:column;gap:var(--space-md);">
-
-        <!-- Header row: role, model, status -->
-        <div style="display:flex;gap:var(--space-md);flex-wrap:wrap;align-items:center;">
-          <div>
-            <div style="font-size:11px;color:var(--text-muted);">Role</div>
-            <div style="color:var(--text-primary);font-size:13px;">${escapeHtml(agent.role)}</div>
-          </div>
-          <div>
-            <div style="font-size:11px;color:var(--text-muted);">Model</div>
-            <span class="badge badge-cyan">${agent.model || "sonnet"}</span>
-          </div>
-          <div>
-            <div style="font-size:11px;color:var(--text-muted);">Status</div>
-            <div style="display:flex;align-items:center;gap:4px;">
-              <span class="status-dot ${agent.status || 'idle'}" style="width:9px;height:9px;"></span>
-              <span style="text-transform:capitalize;font-size:13px;">${agent.status || 'idle'}</span>
-            </div>
-          </div>
-          <div>
-            <div style="font-size:11px;color:var(--text-muted);">Session Key</div>
-            <code style="font-size:10px;color:var(--accent-cyan);">${agent.sessionKey}</code>
-          </div>
-        </div>
-
-        <!-- Context usage + sparkline -->
-        <div class="form-group">
-          <label class="form-label" style="color:${contextColor};">
-            ${contextPercent >= 80 ? '⚠️' : '📊'} Context Usage
-          </label>
-          <div style="background:var(--bg-primary);padding:var(--space-sm);border-radius:var(--radius-sm);">
-            <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:4px;">
-              <span style="font-size:11px;color:var(--text-muted);">
-                ${contextUsed.toLocaleString()} / ${contextCap.toLocaleString()} tokens
-              </span>
-              <span style="font-size:12px;font-weight:600;color:${contextColor};">${contextPercent}%</span>
-            </div>
-            <div style="height:8px;background:var(--bg-secondary);border-radius:4px;overflow:hidden;margin-bottom:6px;">
-              <div style="height:100%;width:${contextPercent}%;background:${contextColor};transition:width 0.3s;"></div>
-            </div>
-            <div style="display:flex;align-items:center;justify-content:space-between;">
-              <span style="font-size:10px;color:var(--text-muted);">
-                Last sleep: ${lastSleep}
-                ${agent.lastSleepNote ? `<br><em>"${escapeHtml(agent.lastSleepNote.slice(0, 60))}"</em>` : ''}
-              </span>
-              <div title="Context % trend (last ${sparkValues.length} sessions)">${sparkline}</div>
-            </div>
-          </div>
-        </div>
-
-        <!-- Session History (last 10) -->
-        <div class="form-group">
-          <label class="form-label">🕐 Session History (last 14)</label>
-          <div style="overflow-x:auto;max-height:180px;overflow-y:auto;background:var(--bg-primary);border-radius:var(--radius-sm);padding:4px;">
-            <table style="${tableStyle}">
-              <thead>
-                <tr>
-                  <th style="${thStyle}">Started</th>
-                  <th style="${thStyle}">Duration</th>
-                  <th style="${thStyle}">Context</th>
-                  <th style="${thStyle}">Working On</th>
-                </tr>
-              </thead>
-              <tbody id="session-history-rows">
-                ${sessionRows}
-              </tbody>
-            </table>
-          </div>
-        </div>
-
-        <!-- Action Timeline -->
-        <div class="form-group">
-          <label class="form-label">⚡ Recent Actions</label>
-          <div style="max-height:140px;overflow-y:auto;background:var(--bg-primary);border-radius:var(--radius-sm);padding:var(--space-xs);">
-            ${timelineRows}
-          </div>
-        </div>
-
-        <!-- Active Tasks -->
-        <div class="form-group">
-          <label class="form-label">📋 Assigned Tasks (${agentTasks.length} active)</label>
-          <div style="max-height:100px;overflow-y:auto;">
-            ${agentTasks.length === 0
-              ? `<p style="color:var(--text-muted);font-size:11px;">No active tasks</p>`
-              : agentTasks.map(t => `
-                  <div style="padding:6px 8px;background:var(--bg-primary);border-radius:var(--radius-sm);margin-bottom:3px;font-size:11px;">
-                    <span class="badge ${PRIORITY_COLORS[t.priority] || 'badge-neutral'}" style="font-size:10px;">P${t.priority}</span>
-                    ${escapeHtml(t.title)}
-                  </div>
-                `).join('')
-            }
-          </div>
-        </div>
-
-      </div>
-    `;
-    
-    footer.innerHTML = `<button type="button" class="btn btn-secondary" id="modal-cancel">Close</button>`;
-    if ($("#modal-cancel")) $("#modal-cancel").addEventListener("click", closeTaskModal);
-  }
-
-  /** Populate the assignee dropdown with cached agents. */
-  function populateAssigneeSelect() {
-    const select = $("#task-assignee");
-    if (!select) return;
-    
-    while (select.options.length > 1) {
-      select.remove(1);
-    }
-    
-    cachedAgents.forEach((agent) => {
-      const option = document.createElement("option");
-      option.value = agent._id || agent.id;
-      option.textContent = `${agent.emoji} ${agent.name}`;
-      select.appendChild(option);
-    });
-  }
-
-  // ============ Tasks ============
-
-  /** Load all tasks from the database and render the Kanban board. */
-  async function loadTasks() {
-    const db = getDB();
-    if (!db) return;
-    
-    try {
-      cachedTasks = await db.tasks.list();
-      renderKanban();
-      updateTaskCount();
-    } catch (err) {
-      console.error("Failed to load tasks:", err);
-      showToast("Failed to load tasks", "error");
-    }
-  }
-
-  /** Render the Kanban board columns and task cards. */
-  function renderKanban() {
-    const container = $("#kanban-board");
-    if (!container) return;
-    container.innerHTML = "";
-
-    STATUS_COLUMNS.forEach((status) => {
-      const tasks = cachedTasks.filter((t) => t.status === status);
-      // Sort by priority (high to low)
-      tasks.sort((a, b) => (b.priority || 5) - (a.priority || 5));
-      
-      const column = createEl("div", "kanban-column");
-      column.dataset.status = status;
-      
-      column.innerHTML = `
-        <div class="kanban-header">
-          <span class="kanban-title">${STATUS_LABELS[status]}</span>
-          <span class="kanban-count">${tasks.length}</span>
-        </div>
-        <div class="kanban-tasks" data-status="${status}"></div>
-      `;
-      
-      const tasksContainer = column.querySelector(".kanban-tasks");
-      
-      // Drag and drop events
-      tasksContainer.addEventListener("dragover", handleDragOver);
-      tasksContainer.addEventListener("dragenter", handleDragEnter);
-      tasksContainer.addEventListener("dragleave", handleDragLeave);
-      tasksContainer.addEventListener("drop", handleDrop);
-      
-      tasks.forEach((task) => {
-        const card = renderTaskCard(task);
-        tasksContainer.appendChild(card);
-      });
-      
-      container.appendChild(column);
-    });
-  }
-
-  /** Render a single draggable task card element. */
-  function renderTaskCard(task) {
-    const taskId = task._id || task.id;
-    const assignees = cachedAgents.filter(a => 
-      task.assigneeIds?.includes(a._id || a.id)
-    );
-    
-    // Truncate description for card preview
-    const descPreview = task.description 
-      ? (task.description.length > 80 ? task.description.slice(0, 80) + '...' : task.description)
-      : '';
-    
-    const card = createEl("div", "task-card");
-    card.dataset.taskId = taskId;
-    card.draggable = true;
-    
-    card.innerHTML = `
-      <div class="task-title">${escapeHtml(task.title)}</div>
-      ${descPreview ? `<div class="task-desc" style="font-size: 11px; color: var(--text-muted); margin: 4px 0; line-height: 1.3;">${escapeHtml(descPreview)}</div>` : ''}
-      <div class="task-meta">
-        <span class="badge ${PRIORITY_COLORS[task.priority] || "badge-cyan"}">${task.priority || 5}</span>
-        <span>${assignees.length > 0 ? assignees.map(a => a.emoji).join(' ') : "—"}</span>
-      </div>
-    `;
-    
-    card.addEventListener("dragstart", handleDragStart);
-    card.addEventListener("dragend", handleDragEnd);
-    card.addEventListener("click", () => openTaskDetail(task));
-    
-    return card;
-  }
-
-  // ============ Drag and Drop ============
-
-  function handleDragStart(e) {
-    draggedTask = e.target;
-    e.target.classList.add("dragging");
-    e.dataTransfer.effectAllowed = "move";
-    e.dataTransfer.setData("text/plain", e.target.dataset.taskId);
-  }
-
-  function handleDragEnd(e) {
-    e.target.classList.remove("dragging");
-    draggedTask = null;
-    document.querySelectorAll(".kanban-tasks").forEach(col => {
-      col.classList.remove("drag-over");
-    });
-  }
-
-  function handleDragOver(e) {
-    e.preventDefault();
-    e.dataTransfer.dropEffect = "move";
-  }
-
-  function handleDragEnter(e) {
-    e.preventDefault();
-    e.currentTarget.classList.add("drag-over");
-  }
-
-  function handleDragLeave(e) {
-    e.currentTarget.classList.remove("drag-over");
-  }
-
-  async function handleDrop(e) {
-    e.preventDefault();
-    const column = e.currentTarget;
-    column.classList.remove("drag-over");
-    
-    const taskId = e.dataTransfer.getData("text/plain");
-    const newStatus = column.dataset.status;
-    
-    if (!taskId || !newStatus) return;
-    
-    try {
-      const db = getDB();
-      console.log("Updating task:", taskId, "to status:", newStatus);
-      const result = await db.tasks.update(taskId, { status: newStatus });
-      console.log("Update result:", result);
-      
-      if (result) {
-        showToast(`Task moved to ${STATUS_LABELS[newStatus]}`, "success");
-        // Force refresh after short delay to ensure backend processed
-        setTimeout(async () => {
-          await loadTasks();
-          await loadAgents();
-          renderKanban();
-        }, 500);
-      } else {
-        showToast("Update may have failed - please refresh", "warning");
-      }
-      
-      // Immediate refresh
-      await loadTasks();
-    } catch (err) {
-      console.error("Failed to update task:", err);
-      showToast("Failed to move task: " + (err.message || "Unknown error"), "error");
-    }
-  }
-
-  // ============ Task Detail Slide Panel ============
-
-  let currentDetailTask = null;
-
-  async function openTaskDetail(task) {
-    currentDetailTask = task;
-    const taskId = task._id || task.id;
-    const assignees = cachedAgents.filter(a => 
-      task.assigneeIds?.includes(a._id || a.id)
-    );
-    
-    const panel = $("#task-detail-panel");
-    
-    // Set basic info
-    $("#panel-task-title").textContent = task.title;
-    
-    const statusBadge = $("#panel-task-status");
-    statusBadge.textContent = STATUS_LABELS[task.status];
-    statusBadge.className = `badge badge-cyan`;
-    
-    const priorityBadge = $("#panel-task-priority");
-    priorityBadge.textContent = `P${task.priority || 5}`;
-    priorityBadge.className = `badge ${PRIORITY_COLORS[task.priority] || 'badge-cyan'}`;
-    
-    // Render assignees with remove buttons
-    $("#panel-task-assignees").innerHTML = assignees.length > 0 
-      ? assignees.map(a => `
-          <span class="assignee-chip" data-agent-id="${a._id || a.id}" style="display: inline-flex; align-items: center; gap: 4px; background: var(--bg-primary); padding: 4px 8px; border-radius: var(--radius-sm); margin-right: 4px; margin-bottom: 4px;">
-            ${a.emoji} ${a.name}
-            <button class="remove-assignee" data-agent-id="${a._id || a.id}" style="background: none; border: none; cursor: pointer; color: var(--text-muted); font-size: 14px; padding: 0 2px;">&times;</button>
-          </span>
-        `).join('')
-      : '<span style="color: var(--text-muted);">No agents assigned</span>';
-    
-    // Bind remove assignee buttons
-    document.querySelectorAll('.remove-assignee').forEach(btn => {
-      btn.addEventListener('click', async (e) => {
-        e.stopPropagation();
-        const agentId = btn.dataset.agentId;
-        await removeAssignee(taskId, agentId);
-      });
-    });
-    
-    // Populate and bind agent assignment dropdown
-    const assignSelect = $("#panel-assign-agent");
-    assignSelect.innerHTML = '<option value="">+ Assign agent...</option>';
-    cachedAgents.forEach(agent => {
-      // Don't show already assigned agents
-      if (!task.assigneeIds?.includes(agent._id || agent.id)) {
-        const option = document.createElement('option');
-        option.value = agent._id || agent.id;
-        option.textContent = `${agent.emoji} ${agent.name}`;
-        assignSelect.appendChild(option);
-      }
-    });
-    assignSelect.onchange = async (e) => {
-      if (e.target.value) {
-        await addAssignee(taskId, e.target.value);
-        e.target.value = '';
-      }
-    };
-    
-    // Description
-    $("#panel-task-description").innerHTML = task.description 
-      ? escapeHtml(task.description)
-      : '<span style="color: var(--text-muted);">No description provided.</span>';
-    
-    // Load linked documents
-    const docsContainer = $("#panel-task-documents");
-    if (window.Documents) {
-      const docs = window.Documents.getByTask(taskId);
-      if (docs.length > 0) {
-        docsContainer.innerHTML = docs.map(doc => `
-          <div style="padding: var(--space-sm); background: var(--bg-primary); border-radius: var(--radius-sm); margin-bottom: var(--space-xs); cursor: pointer;" 
-               onclick="Documents.openViewer(Documents.getAll().find(d => d.id === '${doc.id}'))">
-            <span>${doc.type === 'deliverable' ? '📦' : '📄'}</span>
-            <span style="color: var(--text-primary);">${escapeHtml(doc.title)}</span>
-          </div>
-        `).join('');
-      } else {
-        docsContainer.innerHTML = '<p style="color: var(--text-muted); font-size: var(--text-caption);">No documents linked</p>';
-      }
-    }
-    
-    // Load task activity (filtered by taskId)
-    const activityContainer = $("#panel-task-activity");
-    // For now, show placeholder - in production, filter from ActivityLog
-    activityContainer.innerHTML = `
-      <div class="activity-entry" style="border: none; padding: var(--space-xs) 0;">
-        <div class="activity-entry-icon" style="width: 28px; height: 28px; font-size: 0.875rem;">📝</div>
-        <div class="activity-entry-body">
-          <div class="activity-entry-headline" style="font-size: var(--text-caption);">
-            Task created by <strong>${escapeHtml(task.createdByName || 'Unknown')}</strong>
-          </div>
-        </div>
-      </div>
-      ${task.verifiedAt ? `
-        <div class="activity-entry" style="border: none; padding: var(--space-xs) 0;">
-          <div class="activity-entry-icon" style="width: 28px; height: 28px; font-size: 0.875rem;">✅</div>
-          <div class="activity-entry-body">
-            <div class="activity-entry-headline" style="font-size: var(--text-caption);">
-              Verified on ${new Date(task.verifiedAt).toLocaleDateString()}
-            </div>
-          </div>
-        </div>
-      ` : ''}
-    `;
-    
-    // Load comments
-    const commentsContainer = $("#panel-task-comments");
-    const formContainer = $("#panel-comment-form-container");
-    
-    if (window.Comments) {
-      // Load comments for this task
-      await window.Comments.loadForTask(taskId);
-      window.Comments.render(taskId, commentsContainer);
-      
-      // Add comment form
-      formContainer.innerHTML = '';
-      const form = window.Comments.createForm(taskId, async () => {
-        // Refresh comments after adding
-        await window.Comments.loadForTask(taskId);
-        window.Comments.render(taskId, commentsContainer);
-      });
-      formContainer.appendChild(form);
-    }
-    
-    // Open the panel
-    panel.classList.add("open");
-    
-    // Bind close events
-    $("#panel-close").onclick = closeTaskDetailPanel;
-    panel.onclick = (e) => {
-      if (e.target === panel) closeTaskDetailPanel();
-    };
-  }
-
-  function closeTaskDetailPanel() {
-    const panel = $("#task-detail-panel");
-    panel.classList.remove("open");
-    currentDetailTask = null;
-  }
-
-  // Add an agent to a task
-  async function addAssignee(taskId, agentId) {
-    const task = cachedTasks.find(t => (t._id || t.id) === taskId);
-    if (!task) return;
-    
-    const currentAssignees = task.assigneeIds || [];
-    if (currentAssignees.includes(agentId)) return;
-    
-    const newAssignees = [...currentAssignees, agentId];
-    
-    try {
-      const db = getDB();
-      await db.tasks.update(taskId, { assigneeIds: newAssignees });
-      showToast("Agent assigned", "success");
-      
-      // Refresh task detail panel
-      if (!useConvex) await loadTasks();
-      const updatedTask = cachedTasks.find(t => (t._id || t.id) === taskId);
-      if (updatedTask) openTaskDetail(updatedTask);
-    } catch (err) {
-      console.error("Failed to assign agent:", err);
-      showToast("Failed to assign agent", "error");
-    }
-  }
-  
-  // Remove an agent from a task
-  async function removeAssignee(taskId, agentId) {
-    const task = cachedTasks.find(t => (t._id || t.id) === taskId);
-    if (!task) return;
-    
-    const currentAssignees = task.assigneeIds || [];
-    const newAssignees = currentAssignees.filter(id => id !== agentId);
-    
-    try {
-      const db = getDB();
-      await db.tasks.update(taskId, { assigneeIds: newAssignees });
-      showToast("Agent removed", "success");
-      
-      // Refresh task detail panel
-      if (!useConvex) await loadTasks();
-      const updatedTask = cachedTasks.find(t => (t._id || t.id) === taskId);
-      if (updatedTask) openTaskDetail(updatedTask);
-    } catch (err) {
-      console.error("Failed to remove agent:", err);
-      showToast("Failed to remove agent", "error");
-    }
-  }
-
-  function getNextStatus(currentStatus) {
-    const order = ["inbox", "assigned", "in_progress", "review", "done"];
-    const idx = order.indexOf(currentStatus);
-    return idx < order.length - 1 ? order[idx + 1] : null;
-  }
-
-  function getNextAction(currentStatus) {
-    const actions = {
-      inbox: "Assign →",
-      assigned: "Start Work →",
-      in_progress: "Submit for Review →",
-      review: "Mark Complete ✓",
-    };
-    return actions[currentStatus] || "Progress →";
-  }
-
-  // ============ Edit Task Modal ============
-
-  function openTaskModal(task = null) {
-    editingTaskId = task?._id || task?.id || null;
-    
-    const modal = $("#task-modal");
-    const title = $("#modal-title");
-    const footer = $(".modal-footer");
-    const form = $("#task-form");
-    
-    title.textContent = task ? "Edit Task" : "New Task";
-    
-    form.innerHTML = `
-      <div class="form-group">
-        <label class="form-label" for="task-title-input">Title</label>
-        <input type="text" id="task-title-input" class="input" placeholder="Task title" required>
-      </div>
-      <div class="form-group">
-        <label class="form-label" for="task-desc">Description</label>
-        <textarea id="task-desc" class="input" rows="3" placeholder="Task details..." style="resize: vertical;"></textarea>
-      </div>
-      <div class="form-row">
-        <div class="form-group">
-          <label class="form-label" for="task-priority">Priority (1-10)</label>
-          <select id="task-priority" class="input select">
-            <option value="1">1 - Someday</option>
-            <option value="2">2 - Low</option>
-            <option value="3">3 - Low</option>
-            <option value="4">4 - Medium-Low</option>
-            <option value="5" selected>5 - Medium</option>
-            <option value="6">6 - Medium-High</option>
-            <option value="7">7 - High (48h)</option>
-            <option value="8">8 - High (24h)</option>
-            <option value="9">9 - Urgent (Today)</option>
-            <option value="10">10 - CRITICAL</option>
-          </select>
-        </div>
-        <div class="form-group">
-          <label class="form-label" for="task-assignee">Assignee</label>
-          <select id="task-assignee" class="input select">
-            <option value="">Unassigned</option>
-          </select>
-        </div>
-      </div>
-      <div class="form-group">
-        <label class="form-label" for="task-status">Status</label>
-        <select id="task-status" class="input select">
-          <option value="inbox">Inbox</option>
-          <option value="assigned">Assigned</option>
-          <option value="in_progress">In Progress</option>
-          <option value="review">Review</option>
-          <option value="done">Done</option>
-        </select>
-      </div>
-    `;
-    
-    populateAssigneeSelect();
-    
-    if (task) {
-      $("#task-title-input").value = task.title || "";
-      $("#task-desc").value = task.description || "";
-      $("#task-priority").value = task.priority || 5;
-      $("#task-assignee").value = task.assigneeIds?.[0] || "";
-      $("#task-status").value = task.status || "inbox";
-    }
-    
-    footer.innerHTML = `
-      <button type="button" class="btn btn-secondary" id="modal-cancel">Cancel</button>
-      <button type="submit" form="task-form" class="btn btn-primary" id="modal-save">Save Task</button>
-    `;
-    
-    $("#modal-cancel").addEventListener("click", closeTaskModal);
-    form.onsubmit = saveTask;
-    
-    modal.classList.add("open");
-  }
-
-  function closeTaskModal() {
-    const modal = $("#task-modal");
-    modal.classList.remove("open");
-    editingTaskId = null;
-  }
-
-  async function saveTask(e) {
-    e.preventDefault();
-    
-    const title = $("#task-title-input").value.trim();
-    const description = $("#task-desc").value.trim();
-    const priority = parseInt($("#task-priority").value);
-    const assigneeId = $("#task-assignee").value || null;
-    const status = $("#task-status").value;
-    
-    if (!title) {
-      showToast("Please enter a task title", "warning");
-      return;
-    }
-    
-    try {
-      const db = getDB();
-      
-      if (editingTaskId) {
-        // Update existing task
-        await db.tasks.update(editingTaskId, { status });
-        if (priority) {
-          await db.tasks.update(editingTaskId, { priority });
-        }
-        if (assigneeId) {
-          await db.tasks.update(editingTaskId, { assigneeIds: [assigneeId] });
-        }
-        showToast("Task updated", "success");
-      } else {
-        // Create new task
-        await db.tasks.add({
-          title,
-          description,
-          priority,
-          createdBySession: "agent:main:main", // Default to Abbe
-        });
-        showToast("Task created", "success");
-      }
-      
-      closeTaskModal();
-      if (!useConvex) await loadTasks();
-    } catch (err) {
-      showToast("Failed to save task", "error");
-      console.error(err);
-    }
-  }
-
-  function updateTaskCount() {
-    const badge = $("#task-count");
-    if (badge) {
-      const activeTasks = cachedTasks.filter((t) => t.status !== "done").length;
-      badge.textContent = activeTasks;
-    }
-    
-    // Update stats dashboard
-    updateStats();
-    
-    // Update recent completions
-    updateRecentCompletions();
-  }
-  
-  function updateStats() {
-    // Completed today (tasks with status=done that were verified today)
-    const today = new Date();
-    today.setHours(0, 0, 0, 0);
-    const completedToday = cachedTasks.filter(t => 
-      t.status === "done" && t.verifiedAt && t.verifiedAt >= today.getTime()
-    ).length;
-    
-    const inProgress = cachedTasks.filter(t => t.status === "in_progress").length;
-    const inReview = cachedTasks.filter(t => t.status === "review").length;
-    const activeAgents = cachedAgents.filter(a => a.status === "active").length;
-    const blockedAgents = cachedAgents.filter(a => a.status === "blocked").length;
-    
-    // Update stat values
-    const statCompletedToday = $("#stat-completed-today");
-    const statInProgress = $("#stat-in-progress");
-    const statInReview = $("#stat-in-review");
-    const statBlocked = $("#stat-blocked");
-    const statActiveAgents = $("#stat-active-agents");
-    
-    if (statCompletedToday) statCompletedToday.textContent = completedToday;
-    if (statInProgress) statInProgress.textContent = inProgress;
-    if (statInReview) statInReview.textContent = inReview;
-    if (statBlocked) statBlocked.textContent = blockedAgents;
-    if (statActiveAgents) statActiveAgents.textContent = activeAgents;
-    
-    // Add alert class if there are blocked agents
-    const blockedCard = statBlocked?.closest(".stat-card");
-    if (blockedCard) {
-      blockedCard.classList.toggle("alert", blockedAgents > 0);
-    }
-    
-    // Add success class if completions today
-    const completedCard = statCompletedToday?.closest(".stat-card");
-    if (completedCard) {
-      completedCard.classList.toggle("success", completedToday > 0);
-    }
-  }
-  
-  function updateRecentCompletions() {
-    const container = $("#recent-completions");
-    if (!container) return;
-    
-    // Get completed tasks from last 24 hours
-    const oneDayAgo = Date.now() - (24 * 60 * 60 * 1000);
-    const recentDone = cachedTasks
-      .filter(t => t.status === "done" && t.verifiedAt && t.verifiedAt >= oneDayAgo)
-      .sort((a, b) => (b.verifiedAt || 0) - (a.verifiedAt || 0))
-      .slice(0, 5);
-    
-    if (recentDone.length === 0) {
-      container.innerHTML = `<p style="color: var(--text-muted); padding: var(--space-md);">No completions in the last 24 hours</p>`;
-      return;
-    }
-    
-    container.innerHTML = recentDone.map(task => {
-      const assignees = cachedAgents.filter(a => task.assigneeIds?.includes(a._id || a.id));
-      const assigneeNames = assignees.map(a => a.name).join(", ") || "Unassigned";
-      const timeAgo = formatTimeAgo(task.verifiedAt);
-      
+    list.innerHTML = agents.map(a => {
+      const ctxPct = a.contextPercent || 0;
+      const ctxColor = ctxPct >= 80 ? "var(--accent-red)" : ctxPct >= 60 ? "var(--accent-amber)" : "var(--accent-green)";
+      const curTask = tasks.find(t => a.currentTaskId && t._id === a.currentTaskId);
       return `
-        <div class="completion-item" data-task-id="${task._id || task.id}">
-          <div class="completion-icon">✅</div>
-          <div class="completion-content">
-            <div class="completion-title">${escapeHtml(task.title)}</div>
-            <div class="completion-meta">Completed by ${escapeHtml(assigneeNames)}</div>
+        <div class="agent-compact-card" data-id="${a._id}">
+          <div class="agent-compact-top">
+            <span class="agent-compact-emoji">${a.emoji}</span>
+            <span class="agent-compact-name">${escHtml(a.name)}</span>
+            <span class="agent-status-dot ${a.status}" title="${a.status}"></span>
           </div>
-          <div class="completion-time">${timeAgo}</div>
+          <div class="agent-compact-meta">
+            <span class="agent-compact-role">${escHtml(a.role)}</span>
+            <span style="font-size:10px;color:${ctxColor}">${ctxPct > 0 ? ctxPct + "% ctx" : ""}</span>
+          </div>
+          ${ctxPct > 0 ? `
+          <div class="agent-compact-context-row">
+            <div class="agent-compact-context">
+              <div class="agent-compact-context-bar" style="width:${ctxPct}%;background:${ctxColor}"></div>
+            </div>
+          </div>` : ""}
+          ${curTask ? `<div class="agent-compact-task" title="${escHtml(curTask.title)}">↳ ${escHtml(curTask.title)}</div>` : ""}
+          ${a.lastActiveAt ? `<div style="font-size:10px;color:var(--text-muted)">${timeAgo(a.lastActiveAt)}</div>` : ""}
         </div>
       `;
     }).join("");
-    
-    // Bind click to open task detail
-    container.querySelectorAll(".completion-item").forEach(item => {
-      item.addEventListener("click", () => {
-        const taskId = item.dataset.taskId;
-        const task = cachedTasks.find(t => (t._id || t.id) === taskId);
-        if (task) openTaskDetail(task);
+
+    list.querySelectorAll(".agent-compact-card").forEach(card => {
+      card.addEventListener("click", () => {
+        const a = agents.find(a => a._id === card.dataset.id);
+        if (a) openAgentModal(a);
       });
     });
   }
-  
-  function formatTimeAgo(timestamp) {
-    const diffMs = Date.now() - timestamp;
-    const diffMins = Math.floor(diffMs / 60000);
-    const diffHours = Math.floor(diffMs / 3600000);
-    
-    if (diffMins < 1) return "just now";
-    if (diffMins < 60) return `${diffMins}m ago`;
-    if (diffHours < 24) return `${diffHours}h ago`;
-    return new Date(timestamp).toLocaleDateString();
-  }
 
-  // ============ Toast ============
+  // ── Agent detail modal ────────────────────────────────────────────
+  function openAgentModal(agent) {
+    const overlay = document.getElementById("agent-modal-overlay");
+    const title   = document.getElementById("agent-modal-title");
+    const body    = document.getElementById("agent-modal-body");
+    if (!overlay || !body) return;
 
-  /** Display a temporary toast notification. */
-  function showToast(message, type = "info") {
-    const container = $("#toast-container");
-    if (!container) return;
-    
-    const toast = createEl("div", `toast ${type}`);
-    toast.innerHTML = `
-      <span style="flex: 1;">${escapeHtml(message)}</span>
-      <button class="btn-ghost" style="padding: 4px; font-size: 1.25rem; line-height: 1; min-height: auto;">&times;</button>
+    title.textContent = `${agent.emoji} ${agent.name}`;
+    overlay.classList.remove("hidden");
+
+    const ctxPct = agent.contextPercent || 0;
+    const ctxColor = ctxPct >= 80 ? "var(--accent-red)" : ctxPct >= 60 ? "var(--accent-amber)" : "var(--accent-green)";
+    const agentTasks = tasks.filter(t => t.assigneeIds?.includes(agent._id) && t.status !== "done");
+
+    body.innerHTML = `
+      <div style="display:flex;flex-direction:column;gap:16px">
+        <div class="spec-grid" style="grid-template-columns:auto 1fr;gap:4px 16px">
+          <span class="spec-label">Role</span>     <span>${escHtml(agent.role)}</span>
+          <span class="spec-label">Status</span>   <span><span class="agent-status-dot ${agent.status}" style="display:inline-block"></span> ${agent.status}</span>
+          <span class="spec-label">Model</span>    <span class="mono" style="font-size:11px">${escHtml(agent.model || "—")}</span>
+          <span class="spec-label">Session</span>  <span class="mono" style="font-size:10px">${escHtml(agent.sessionKey)}</span>
+          <span class="spec-label">Last active</span><span>${timeAgo(agent.lastActiveAt)}</span>
+        </div>
+
+        ${ctxPct > 0 ? `
+        <div>
+          <div style="display:flex;justify-content:space-between;margin-bottom:4px;font-size:11px">
+            <span style="color:var(--text-muted)">Context usage</span>
+            <span style="color:${ctxColor};font-weight:600">${ctxPct}%</span>
+          </div>
+          <div style="height:6px;background:var(--bg-active);border-radius:3px;overflow:hidden">
+            <div style="height:100%;width:${ctxPct}%;background:${ctxColor};border-radius:3px;transition:width 0.3s"></div>
+          </div>
+          ${agent.contextUsed ? `<div style="font-size:10px;color:var(--text-muted);margin-top:2px">${agent.contextUsed?.toLocaleString()} / ${agent.contextCap?.toLocaleString()} tokens</div>` : ""}
+        </div>` : ""}
+
+        ${agent.lastSleepNote ? `
+        <div>
+          <div style="font-size:10px;color:var(--text-muted);text-transform:uppercase;letter-spacing:0.5px;font-weight:600;margin-bottom:4px">Last sleep note</div>
+          <p style="font-size:12px;color:var(--text-secondary);line-height:1.5">${escHtml(agent.lastSleepNote)}</p>
+        </div>` : ""}
+
+        ${agentTasks.length ? `
+        <div>
+          <div style="font-size:10px;color:var(--text-muted);text-transform:uppercase;letter-spacing:0.5px;font-weight:600;margin-bottom:8px">Active Tasks (${agentTasks.length})</div>
+          ${agentTasks.map(t => `
+            <div style="padding:6px 8px;background:var(--bg-elevated);border-radius:4px;margin-bottom:4px;font-size:12px;border-left:2px solid var(--accent-blue)">
+              ${escHtml(t.title)}
+            </div>
+          `).join("")}
+        </div>` : ""}
+      </div>
     `;
-    
-    const closeBtn = toast.querySelector("button");
-    closeBtn.addEventListener("click", () => toast.remove());
-    
-    container.appendChild(toast);
-    
-    setTimeout(() => {
-      toast.style.opacity = "0";
-      toast.style.transform = "translateX(100%)";
-      setTimeout(() => toast.remove(), 200);
-    }, 4000);
   }
 
-  // ============ Init ============
+  // ── Kanban board ─────────────────────────────────────────────────
+  const COLUMNS = ["inbox", "in_progress", "review", "blocked", "done"];
 
-  /** Bind UI event handlers (new task, refresh, modal close, etc.). */
-  function bindEvents() {
-    const newTaskBtn = $("#new-task-btn");
-    if (newTaskBtn) {
-      newTaskBtn.addEventListener("click", () => openTaskModal());
-    }
-    
-    // Refresh tasks button
-    const refreshTasksBtn = $("#refresh-tasks-btn");
-    if (refreshTasksBtn) {
-      refreshTasksBtn.addEventListener("click", async () => {
-        await loadTasks();
-        await loadAgents();
-        showToast("Refreshed", "success");
-      });
-    }
-    
-    // Modal close button (X)
-    const modalCloseBtn = $("#modal-close");
-    if (modalCloseBtn) {
-      modalCloseBtn.addEventListener("click", closeTaskModal);
-    }
-    
-    // Click outside modal to close
-    const modalBackdrop = $("#task-modal");
-    if (modalBackdrop) {
-      modalBackdrop.addEventListener("click", (e) => {
-        if (e.target === modalBackdrop) closeTaskModal();
-      });
-    }
-    
-    document.addEventListener("keydown", (e) => {
-      if (e.key === "Escape") {
-        closeTaskModal();
-        closeTaskDetailPanel();
+  function priorityClass(p) {
+    if (p >= 8) return "priority-high";
+    if (p >= 4) return "priority-medium";
+    return "priority-low";
+  }
+
+  function renderKanban() {
+    const taskCount = document.getElementById("task-count");
+    const activeTasks = tasks.filter(t => t.status !== "done" && t.status !== "archived");
+    taskCount && (taskCount.textContent = activeTasks.length || "");
+
+    COLUMNS.forEach(status => {
+      const col = document.getElementById(`col-${status}`);
+      const countEl = document.getElementById(`col-count-${status}`);
+      if (!col) return;
+
+      const colTasks = tasks.filter(t => t.status === status);
+      countEl && (countEl.textContent = colTasks.length);
+
+      if (!colTasks.length) {
+        col.innerHTML = `<div style="font-size:11px;color:var(--text-muted);text-align:center;padding:16px">Empty</div>`;
+        return;
       }
+      col.innerHTML = colTasks
+        .sort((a, b) => (b.priority || 5) - (a.priority || 5))
+        .map(t => {
+          const assigneeNames = (t.assigneeIds || [])
+            .map(id => agents.find(a => a._id === id)?.emoji || "")
+            .filter(Boolean).join("");
+          return `
+            <div class="kanban-card ${selectedTaskId === t._id ? "selected" : ""}" data-id="${t._id}">
+              <div class="kanban-card-title">${escHtml(t.title)}</div>
+              <div class="kanban-card-meta">
+                <span class="kanban-card-assignee">${assigneeNames}</span>
+                <span class="priority-dot ${priorityClass(t.priority || 5)}" title="Priority ${t.priority}"></span>
+              </div>
+            </div>
+          `;
+        }).join("");
+
+      col.querySelectorAll(".kanban-card").forEach(card => {
+        card.addEventListener("click", () => openTaskDetail(card.dataset.id));
+      });
     });
   }
 
-  /** Initialize Mission Control: Convex, subscriptions, agents, tasks. */
-  async function init() {
-    bindEvents();
-    
-    // Try to use Convex if available
-    if (window.Convex) {
+  // ── Task detail panel ─────────────────────────────────────────────
+  function openTaskDetail(taskId) {
+    selectedTaskId = taskId;
+    const task = tasks.find(t => t._id === taskId);
+    const panel = document.getElementById("task-detail-panel");
+    const title = document.getElementById("task-detail-title");
+    const body  = document.getElementById("task-detail-body");
+    if (!panel || !task || !body) return;
+
+    panel.classList.remove("hidden");
+    title.textContent = task.title;
+
+    const assignees = (task.assigneeIds || [])
+      .map(id => agents.find(a => a._id === id))
+      .filter(Boolean);
+
+    const statusOptions = ["inbox","assigned","in_progress","review","done","blocked"]
+      .map(s => `<option value="${s}" ${task.status === s ? "selected" : ""}>${s.replace(/_/g," ")}</option>`)
+      .join("");
+
+    body.innerHTML = `
+      <div style="display:flex;flex-direction:column;gap:16px">
+        <div class="spec-grid" style="grid-template-columns:auto 1fr;gap:4px 16px;font-size:12px">
+          <span class="spec-label">Status</span>
+          <select class="select-input" style="font-size:11px;padding:2px 6px;height:auto" id="task-status-sel">${statusOptions}</select>
+          <span class="spec-label">Priority</span>
+          <span>${task.priority || "—"} / 10</span>
+          <span class="spec-label">Assignees</span>
+          <span>${assignees.map(a => `${a.emoji} ${a.name}`).join(", ") || "Unassigned"}</span>
+          ${task.dueAt ? `<span class="spec-label">Due</span><span>${new Date(task.dueAt).toLocaleDateString()}</span>` : ""}
+        </div>
+
+        ${task.description ? `
+        <div>
+          <div style="font-size:10px;color:var(--text-muted);text-transform:uppercase;letter-spacing:0.5px;font-weight:600;margin-bottom:4px">Description</div>
+          <p style="font-size:12px;color:var(--text-secondary);line-height:1.6">${escHtml(task.description)}</p>
+        </div>` : ""}
+
+        ${task.blockedReason ? `
+        <div style="padding:8px 12px;background:var(--accent-red-bg);border:1px solid var(--accent-red);border-radius:6px;font-size:12px;color:var(--accent-red)">
+          🚫 Blocked: ${escHtml(task.blockedReason)}
+        </div>` : ""}
+
+        ${task.deliverables ? `
+        <div>
+          <div style="font-size:10px;color:var(--text-muted);text-transform:uppercase;letter-spacing:0.5px;font-weight:600;margin-bottom:4px">Deliverables</div>
+          <p style="font-size:12px;color:var(--text-secondary);line-height:1.5">${escHtml(task.deliverables)}</p>
+        </div>` : ""}
+      </div>
+    `;
+
+    // Status change
+    document.getElementById("task-status-sel")?.addEventListener("change", async e => {
       try {
-        await window.Convex.init();
-        useConvex = true;
-        console.log("✅ Using Convex (real-time enabled)");
-        
-        // Clear IndexedDB to avoid stale data conflicts
-        if (window.DB) {
-          try {
-            await window.DB.agents.clear();
-            await window.DB.tasks.clear();
-            console.log("✓ Cleared local cache (using Convex)");
-          } catch (e) {
-            console.warn("Could not clear IndexedDB:", e);
-          }
-        }
-        
-        setupRealtimeSubscriptions();
-        
-        // Agent records are managed by cron wake/sleep calls — no seeding needed
-      } catch (err) {
-        console.warn("Convex init failed, falling back to IndexedDB:", err);
-        useConvex = false;
+        await window.DB.mutation("tasks:updateStatus", { id: taskId, status: e.target.value });
+      } catch (err) { console.error("Status update failed:", err); }
+    });
+  }
+
+  // ── New task modal ────────────────────────────────────────────────
+  function setupNewTaskModal() {
+    const btn      = document.getElementById("new-task-btn");
+    const overlay  = document.getElementById("new-task-modal-overlay");
+    const closeBtn = document.getElementById("close-new-task");
+    const cancelBtn= document.getElementById("cancel-new-task");
+    const submitBtn= document.getElementById("submit-new-task");
+    if (!btn) return;
+
+    function openModal() {
+      const sel = document.getElementById("new-task-assignee");
+      if (sel) {
+        sel.innerHTML = '<option value="">Unassigned</option>' +
+          agents.map(a => `<option value="${a._id}">${a.emoji} ${a.name}</option>`).join("");
       }
-    }
-    
-    // Initial data load
-    await loadAgents();
-    await loadTasks();
-    renderActivityCompact();
-    
-    // Show connection status
-    if (useConvex) {
-      showToast("🔴 Live: Real-time sync enabled", "success");
+      const dsel = document.getElementById("new-task-design");
+      if (dsel) {
+        window.DB.query("lensDesigns:list", {}).then(designs => {
+          dsel.innerHTML = '<option value="">None</option>' +
+            (designs || []).map(d => `<option value="${d._id}">${d.name}</option>`).join("");
+        });
+      }
+      overlay?.classList.remove("hidden");
     }
 
-    // Safety re-render after 3s to catch any init race conditions
-    // (ActivityLog may not have been ready during initial renderActivityCompact)
-    setTimeout(() => {
-      renderActivityCompact();
-      renderAgents();
-    }, 3000);
+    btn.addEventListener("click", openModal);
+    [closeBtn, cancelBtn].forEach(b => b?.addEventListener("click", () => overlay?.classList.add("hidden")));
+    overlay?.addEventListener("click", e => { if (e.target === overlay) overlay.classList.add("hidden"); });
+
+    submitBtn?.addEventListener("click", async () => {
+      const title = document.getElementById("new-task-title")?.value?.trim();
+      if (!title) { alert("Title is required."); return; }
+      const assigneeId = document.getElementById("new-task-assignee")?.value;
+      const priority = parseInt(document.getElementById("new-task-priority")?.value) || 5;
+      const desc = document.getElementById("new-task-desc")?.value?.trim();
+      const designId = document.getElementById("new-task-design")?.value;
+      try {
+        await window.DB.mutation("tasks:create", {
+          title,
+          description: desc || undefined,
+          priority,
+          assigneeIds: assigneeId ? [assigneeId] : [],
+          status: "inbox",
+          relatedDesignId: designId || undefined,
+        });
+        overlay?.classList.add("hidden");
+        ["new-task-title","new-task-desc"].forEach(id => { const el = document.getElementById(id); if (el) el.value = ""; });
+        document.getElementById("new-task-priority") && (document.getElementById("new-task-priority").value = "5");
+      } catch (e) { alert("Error: " + e.message); }
+    });
   }
 
-  /** Refresh all data (tasks, agents, activity sidebar). */
-  async function refresh() {
-    await loadTasks();
-    await loadAgents();
-    renderActivityCompact();
+  // ── Mission Control init ──────────────────────────────────────────
+  function initMission() {
+    // Close panels
+    document.getElementById("close-task-detail")?.addEventListener("click", () => {
+      document.getElementById("task-detail-panel")?.classList.add("hidden");
+      selectedTaskId = null;
+    });
+    document.getElementById("close-agent-modal")?.addEventListener("click", () => {
+      document.getElementById("agent-modal-overlay")?.classList.add("hidden");
+    });
+    document.getElementById("agent-modal-overlay")?.addEventListener("click", e => {
+      if (e.target === document.getElementById("agent-modal-overlay"))
+        document.getElementById("agent-modal-overlay").classList.add("hidden");
+    });
+
+    setupNewTaskModal();
+
+    window.DB.subscribe("agents:list", {}, a => { agents = a || []; renderAgentsCompact(); renderKanban(); });
+    window.DB.subscribe("tasks:list", {}, t => { tasks = t || []; renderKanban(); });
   }
 
-  window.Mission = {
-    init,
-    refresh,
-    openTaskModal,
-    showToast,
-    isRealtime: () => useConvex,
-    renderActivityCompact,
-  };
+  window.initMission = initMission;
+
+  // Mission control is the default tab — init immediately
+  document.addEventListener("DOMContentLoaded", () => initMission());
+
 })();
