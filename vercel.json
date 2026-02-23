@@ -1,6 +1,6 @@
 {
   "version": 2,
-  "name": "abbe-command-center",
+  "name": "theia-command-center",
   "builds": [
     {
       "src": "**/*",
