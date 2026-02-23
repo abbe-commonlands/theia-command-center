@@ -6,7 +6,7 @@
 
   // ── Convex project URL ────────────────────────────────────────────
   // Replace with your deployed Convex URL after `npx convex deploy`
-  const CONVEX_URL = window.CONVEX_URL || "https://YOUR_CONVEX_URL.convex.cloud";
+  const CONVEX_URL = window.CONVEX_URL || "https://peaceful-frog-360.convex.cloud";
 
   // ── Simple subscription/query cache ──────────────────────────────
   // Wraps the Convex client with a consistent API used by all tab modules.
