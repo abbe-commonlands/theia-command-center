@@ -294,7 +294,7 @@ export const verify = mutation({
     if (args.approved) {
       await ctx.db.patch(args.id, {
         status: "done",
-        verifiedBy: ernst?._id,
+        // verifiedBy removed
         verifiedAt: Date.now(),
       });
 

@@ -42,7 +42,7 @@ export const upsert = mutation({
         name: args.name,
         role: args.role,
         emoji: args.emoji,
-        discordChannel: args.discordChannel,
+        // discordChannel removed
         model: args.model,
         lastActiveAt: Date.now(),
       });
@@ -50,7 +50,11 @@ export const upsert = mutation({
     }
 
     return await ctx.db.insert("agents", {
-      ...args,
+      sessionKey: args.sessionKey,
+      name: args.name,
+      role: args.role,
+      emoji: args.emoji,
+      model: args.model,
       status: "idle",
       lastActiveAt: Date.now(),
     });

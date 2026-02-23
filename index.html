@@ -46,10 +46,10 @@
             <span>⚡</span><span>Opt Log</span>
             <span class="nav-badge running-badge" id="opt-running-count">0</span>
           </button>
-          <button class="nav-tab" data-tab="tolerance-tracker" role="tab"
-            aria-selected="false" aria-controls="tolerance-tracker-screen">
+          <button class="nav-tab" data-tab="design-guidelines" role="tab"
+            aria-selected="false" aria-controls="design-guidelines-screen">
             <span>📐</span><span>Tolerances</span>
-            <span class="nav-badge risk-badge" id="tol-risk-count">0</span>
+            <span class="nav-badge risk-badge" id="guideline-count">0</span>
           </button>
           <button class="nav-tab" data-tab="documents" role="tab"
             aria-selected="false" aria-controls="documents-screen">
@@ -337,27 +337,136 @@
       </div>
     </section>
 
-    <!-- ── TOLERANCE TRACKER ──────────────────────────────────────── -->
-    <section id="tolerance-tracker-screen" class="screen" data-screen="tolerance-tracker" role="tabpanel">
-      <div class="tol-layout">
+    <!-- ── DESIGN GUIDELINES ──────────────────────────────────────── -->
+    <section id="design-guidelines-screen" class="screen" data-screen="design-guidelines" role="tabpanel">
+      <div class="guidelines-layout">
 
-        <div class="tol-header-row">
-          <h2>Tolerance Tracker</h2>
-          <select id="tol-design-filter" class="select-input">
-            <option value="">All designs</option>
-          </select>
+        <div class="guidelines-header-row">
+          <h2>Design Guidelines</h2>
+          <div class="guidelines-actions">
+            <input type="text" class="search-input" id="guideline-search" placeholder="Search guidelines…">
+            <button class="btn btn-primary btn-sm" id="add-guideline-btn">+ Add Guideline</button>
+          </div>
         </div>
 
-        <div class="tol-grid" id="tol-grid"></div>
+        <!-- Category tabs -->
+        <div class="guideline-category-pills" id="guideline-category-filter">
+          <button class="pill active" data-value="">All</button>
+          <button class="pill" data-value="assembly">🔧 Assembly</button>
+          <button class="pill" data-value="meniscus">◗ Meniscus</button>
+          <button class="pill" data-value="plano_convex">▷ Plano-Convex</button>
+          <button class="pill" data-value="plano_concave">◁ Plano-Concave</button>
+          <button class="pill" data-value="bi_convex">◈ Bi-Convex</button>
+          <button class="pill" data-value="bi_concave">◇ Bi-Concave</button>
+          <button class="pill" data-value="cemented">⊕ Cemented</button>
+          <button class="pill" data-value="general">📏 General</button>
+          <button class="pill" data-value="glass">🔬 Glass</button>
+          <button class="pill" data-value="coating">💠 Coating</button>
+          <button class="pill" data-value="mount">📦 Mount</button>
+        </div>
 
-        <!-- Tolerance detail modal -->
-        <div class="modal-overlay hidden" id="tol-modal-overlay">
-          <div class="modal" id="tol-modal">
-            <div class="modal-header">
-              <h3 id="tol-modal-title">Tolerance Analysis</h3>
-              <button class="icon-btn" id="close-tol-modal">✕</button>
+        <!-- Strength filter -->
+        <div class="guideline-strength-row">
+          <span class="filter-label">Strength:</span>
+          <div class="filter-pills" id="guideline-strength-filter">
+            <button class="pill active" data-value="">All</button>
+            <button class="pill pill-red" data-value="hard">🚫 Hard</button>
+            <button class="pill pill-amber" data-value="strong">⚠️ Strong</button>
+            <button class="pill" data-value="moderate">📏 Moderate</button>
+            <button class="pill pill-green" data-value="soft">💡 Soft</button>
+          </div>
+        </div>
+
+        <!-- Guidelines list -->
+        <div class="guidelines-content">
+          <div class="guideline-list" id="guideline-list"></div>
+
+          <!-- Guideline detail panel -->
+          <div class="guideline-detail hidden" id="guideline-detail">
+            <div class="panel-header">
+              <h3 id="guideline-detail-title">Guideline Detail</h3>
+              <button class="icon-btn" id="close-guideline-detail">✕</button>
             </div>
-            <div class="modal-body" id="tol-modal-body"></div>
+            <div class="panel-body" id="guideline-detail-body"></div>
+          </div>
+        </div>
+
+        <!-- Add/Edit guideline modal -->
+        <div class="modal-overlay hidden" id="guideline-modal-overlay">
+          <div class="modal modal-wide" id="guideline-modal">
+            <div class="modal-header">
+              <h3 id="guideline-modal-title">Add Design Guideline</h3>
+              <button class="icon-btn" id="close-guideline-modal">✕</button>
+            </div>
+            <div class="modal-body">
+              <div class="form-row">
+                <div class="form-group">
+                  <label>Guideline Name</label>
+                  <input type="text" id="gl-name" class="text-input" placeholder="e.g. Meniscus CT/ET ratio">
+                </div>
+                <div class="form-group">
+                  <label>Category</label>
+                  <select id="gl-category" class="select-input">
+                    <option value="assembly">🔧 Assembly</option>
+                    <option value="meniscus">◗ Meniscus</option>
+                    <option value="plano_convex">▷ Plano-Convex</option>
+                    <option value="plano_concave">◁ Plano-Concave</option>
+                    <option value="bi_convex">◈ Bi-Convex</option>
+                    <option value="bi_concave">◇ Bi-Concave</option>
+                    <option value="cemented">⊕ Cemented</option>
+                    <option value="general">📏 General</option>
+                    <option value="glass">🔬 Glass</option>
+                    <option value="coating">💠 Coating</option>
+                    <option value="mount">📦 Mount</option>
+                  </select>
+                </div>
+              </div>
+              <div class="form-row">
+                <div class="form-group">
+                  <label>Strength</label>
+                  <select id="gl-strength" class="select-input">
+                    <option value="hard">🚫 Hard — violate = reject design</option>
+                    <option value="strong">⚠️ Strong — violate = high penalty</option>
+                    <option value="moderate" selected>📏 Moderate — prefer compliance</option>
+                    <option value="soft">💡 Soft — nice to have</option>
+                  </select>
+                </div>
+                <div class="form-group">
+                  <label>Weight (0.0–1.0)</label>
+                  <input type="number" id="gl-weight" class="text-input" min="0" max="1" step="0.05" value="0.5">
+                </div>
+              </div>
+              <div class="form-group">
+                <label>Rule (machine-readable constraint)</label>
+                <input type="text" id="gl-rule" class="text-input mono" placeholder='e.g. CT_ET_ratio >= 1.5  |  edge_thickness >= 0.8mm'>
+              </div>
+              <div class="form-row">
+                <div class="form-group">
+                  <label>Min Value</label>
+                  <input type="number" id="gl-min" class="text-input" step="any" placeholder="optional">
+                </div>
+                <div class="form-group">
+                  <label>Max Value</label>
+                  <input type="number" id="gl-max" class="text-input" step="any" placeholder="optional">
+                </div>
+                <div class="form-group">
+                  <label>Unit</label>
+                  <input type="text" id="gl-unit" class="text-input" placeholder="mm, ratio, deg, etc.">
+                </div>
+              </div>
+              <div class="form-group">
+                <label>Description / Rationale</label>
+                <textarea id="gl-description" class="text-input" rows="3" placeholder="Why does this guideline exist? What happens when violated?"></textarea>
+              </div>
+              <div class="form-group">
+                <label>Source</label>
+                <input type="text" id="gl-source" class="text-input" placeholder="e.g. Max (experience), OPT444 Lecture 12, Schott catalog">
+              </div>
+              <div class="modal-footer">
+                <button class="btn btn-ghost" id="cancel-guideline">Cancel</button>
+                <button class="btn btn-primary" id="submit-guideline">Save Guideline</button>
+              </div>
+            </div>
           </div>
         </div>
 
@@ -605,7 +714,7 @@
   <script src="js/lens-library.js"></script>
   <script src="js/patent-map.js"></script>
   <script src="js/optimization-log.js"></script>
-  <script src="js/tolerance-tracker.js"></script>
+  <script src="js/design-guidelines.js"></script>
   <script src="js/documents.js"></script>
   <script src="js/memory-browser.js"></script>
   <script src="js/log.js"></script>

@@ -301,40 +301,70 @@ export default defineSchema({
     .index("by_status", ["status"])
     .index("by_started", ["startedAt"]),
 
-  // ── Tolerance Analyses ───────────────────────────────────────────
-  toleranceAnalyses: defineTable({
-    designId: v.id("lensDesigns"),
-    designName: v.string(),
-    runBy: v.id("agents"),
-    runByName: v.string(),
-    runAt: v.number(),
-    status: v.union(
-      v.literal("running"),
-      v.literal("complete"),
-      v.literal("failed")
+  // ── Design Guidelines ─────────────────────────────────────────────
+  // Soft/weighted manufacturing + design constraints. Referenced by Qwen
+  // during optimization. Compound over time like memory.
+  designGuidelines: defineTable({
+    name: v.string(),                    // "Meniscus CT/ET ratio"
+    category: v.union(
+      v.literal("assembly"),             // Assembly-level: air spaces, alignment, mounting
+      v.literal("meniscus"),             // Meniscus element constraints
+      v.literal("plano_convex"),         // Plano-convex element constraints
+      v.literal("plano_concave"),        // Plano-concave element constraints
+      v.literal("bi_convex"),            // Bi-convex element constraints
+      v.literal("bi_concave"),           // Bi-concave element constraints
+      v.literal("cemented"),             // Cemented group constraints
+      v.literal("general"),              // General optical design rules
+      v.literal("glass"),                // Glass selection constraints
+      v.literal("coating"),              // Coating constraints
+      v.literal("mount")                 // Mount-specific constraints (M12, C-mount, etc.)
     ),
-    yieldPercent: v.optional(v.number()),
-    rssRmsSpotUm: v.optional(v.number()),
-    worstCaseSensitivity: v.optional(v.string()),
-    criticalTolerances: v.optional(v.array(v.object({
-      parameter: v.string(),
-      nominalValue: v.number(),
-      tolerancePlus: v.number(),
-      toleranceMinus: v.number(),
-      sensitivity: v.number(),
-      riskLevel: v.union(v.literal("low"), v.literal("medium"), v.literal("high")),
-    }))),
-    notes: v.optional(v.string()),
-    mfgRisk: v.optional(v.union(
-      v.literal("low"),
-      v.literal("medium"),
-      v.literal("high"),
-      v.literal("unacceptable")
-    )),
-    recommendation: v.optional(v.string()),
+    strength: v.union(
+      v.literal("hard"),                 // Violate = reject design (physical impossibility)
+      v.literal("strong"),               // Violate = high merit penalty
+      v.literal("moderate"),             // Prefer compliance
+      v.literal("soft")                  // Nice to have, low penalty
+    ),
+    weight: v.number(),                  // 0.0–1.0, used in merit function weighting
+    
+    // Machine-readable constraint
+    rule: v.optional(v.string()),        // e.g. "CT_ET_ratio >= 1.5"
+    parameterName: v.optional(v.string()), // e.g. "CT_ET_ratio", "edge_thickness"
+    minValue: v.optional(v.number()),    // Minimum allowed value
+    maxValue: v.optional(v.number()),    // Maximum allowed value
+    unit: v.optional(v.string()),        // "mm", "ratio", "deg", "%", etc.
+    
+    // Human-readable
+    description: v.string(),             // Why this guideline exists
+    rationale: v.optional(v.string()),   // Deeper explanation of failure modes
+    
+    // Provenance
+    source: v.optional(v.string()),      // "Max (experience)", "OPT444 Lecture 12"
+    addedBy: v.optional(v.id("agents")),
+    addedByName: v.optional(v.string()),
+    createdAt: v.number(),
+    updatedAt: v.number(),
+    
+    // Learning / compounding
+    timesApplied: v.optional(v.number()),    // How many designs have used this
+    timesViolated: v.optional(v.number()),   // How many violations detected
+    lastAppliedAt: v.optional(v.number()),
+    successRate: v.optional(v.number()),     // Designs that followed this guideline and succeeded
+    
+    // Tags for cross-referencing
+    tags: v.optional(v.array(v.string())),   // ["M12", "wide-angle", "CDGM", etc.]
+    relatedGuidelineIds: v.optional(v.array(v.id("designGuidelines"))),
+    
+    // Active/archived
+    active: v.boolean(),
   })
-    .index("by_design", ["designId"])
-    .index("by_run_date", ["runAt"]),
+    .index("by_category", ["category"])
+    .index("by_strength", ["strength"])
+    .index("by_active", ["active"])
+    .searchIndex("search_guidelines", {
+      searchField: "description",
+      filterFields: ["category", "strength", "active"],
+    }),
 
   // ── Patents ──────────────────────────────────────────────────────
   patents: defineTable({

@@ -35,7 +35,7 @@ export const upsert = mutation({
 
     let id;
     if (existing) {
-      await ctx.db.patch(existing._id, fields);
+      await ctx.db.patch(existing._id, fields as any);
       id = existing._id;
     } else {
       id = await ctx.db.insert("glassSelections", fields as any);

@@ -134,7 +134,7 @@
     "lens-library":    () => window.initLensLibrary?.(),
     "patent-map":      () => window.initPatentMap?.(),
     "optimization-log":() => window.initOptimizationLog?.(),
-    "tolerance-tracker":() => window.initToleranceTracker?.(),
+    "design-guidelines":() => window.initDesignGuidelines?.(),
     "documents":       () => window.initDocuments?.(),
     "memory":          () => window.initMemoryBrowser?.(),
     "log":             () => window.initActivityLog?.(),
