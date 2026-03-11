@@ -79,26 +79,26 @@
       documents = [
         {
           id: '1',
-          title: 'Microsoft SSO Integration Spec',
-          content: '# Microsoft SSO Integration\n\n## Overview\nImplement Azure AD authentication for COS dashboard.\n\n## Requirements\n- MSAL.js library\n- Azure AD app registration\n- Redirect URI configuration\n\n## Timeline\n- Week 1: Azure setup\n- Week 2: Frontend integration\n- Week 3: Testing',
+          title: 'Task Board Operating Protocol',
+          content: '# Task Board Operating Protocol\n\n## Rule\nCommand Center is the source of truth for active engineering work.\n\n## Required fields\n- owner\n- status\n- next step\n- blocker\n\n## Status cadence\n- start\n- milestone\n- blocker\n- completion',
           type: 'protocol',
-          createdBy: 'Zernike',
+          createdBy: 'Theia',
           createdAt: Date.now() - 86400000,
         },
         {
           id: '2',
-          title: 'Shopify MCP Research',
-          content: '# Shopify MCP Integration\n\n## Findings\nShopify offers Model Context Protocol endpoints for:\n- Product catalog sync\n- Order management\n- Inventory updates\n\n## Recommended Approach\nUse the official Shopify MCP SDK with Node.js.',
+          title: 'CIL712 Prior-Art Sweep Notes',
+          content: '# CIL712 Prior-Art Sweep\n\n## Findings\n- Fujinon/Kodak prior art remains the main reference cluster\n- Need tighter mapping between design-form tags and linked patents\n\n## Next step\nPhoton to update blocking patents by architecture family.',
           type: 'research',
-          createdBy: 'Abbe',
+          createdBy: 'Photon',
           createdAt: Date.now() - 172800000,
         },
         {
           id: '3',
-          title: 'Dashboard Wireframes v2',
-          content: '# Dashboard Wireframes\n\nUpdated wireframes for the Mission Control dashboard.\n\n## Changes\n- Added notification bell\n- Document panel redesign\n- Activity feed newspaper style\n\n## Feedback\nAwaiting Max review.',
+          title: 'Mission Control UI Revision',
+          content: '# Mission Control UI Revision\n\nUpdated engineering board behavior so Assigned and Blocked are first-class statuses.\n\n## Changes\n- added Assigned column\n- fixed task creation payload mismatch\n- aligned task status flow with Convex schema',
           type: 'deliverable',
-          createdBy: 'Iris',
+          createdBy: 'Quark',
           createdAt: Date.now() - 259200000,
         },
       ];
@@ -310,12 +310,9 @@ Write your content here...
               <div class="form-group">
                 <label class="form-label">Author</label>
                 <select id="doc-author" class="input select">
-                  <option value="Abbe">🧠 Abbe</option>
-                  <option value="Zernike">💻 Zernike</option>
-                  <option value="Seidel">🎯 Seidel</option>
-                  <option value="Iris">📡 Iris</option>
-                  <option value="Kanban">📦 Kanban</option>
-                  <option value="Deming">✅ Deming</option>
+                  <option value="Theia">🔭 Theia</option>
+                  <option value="Photon">⚡ Photon</option>
+                  <option value="Quark">🔬 Quark</option>
                   <option value="Max">👤 Max</option>
                 </select>
               </div>

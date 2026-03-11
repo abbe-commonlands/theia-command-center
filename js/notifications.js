@@ -3,7 +3,7 @@
  * Handles @mentions and agent alerts
  */
 (() => {
-  const AGENTS = ['Abbe', 'Zernike', 'Seidel', 'Iris', 'Photon', 'Kanban', 'Deming', 'Ernst', 'Theia'];
+  const AGENTS = ['Theia', 'Photon', 'Quark', 'Max'];
   const MENTION_REGEX = new RegExp(`@(${AGENTS.join('|')})`, 'gi');
   
   let notifications = [];

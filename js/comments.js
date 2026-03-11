@@ -27,15 +27,9 @@
   }
 
   const AGENT_EMOJIS = {
-    Abbe: '🧠',
-    Zernike: '💻',
-    Seidel: '🔧',
-    Iris: '🎨',
-    Photon: '📸',
-    Kanban: '📋',
-    Deming: '📊',
-    Ernst: '✅',
-    Theia: '🔮',
+    Theia: '🔭',
+    Photon: '⚡',
+    Quark: '🔬',
     Max: '👤',
     Unknown: '🤖',
   };
@@ -159,12 +153,9 @@
     form.className = 'comment-form';
     form.innerHTML = `
       <select class="input select" id="comment-author-${taskId}" style="width: auto; min-width: 120px;">
-        <option value="Abbe">🧠 Abbe</option>
-        <option value="Zernike">💻 Zernike</option>
-        <option value="Seidel">🔧 Seidel</option>
-        <option value="Iris">🎨 Iris</option>
-        <option value="Photon">📸 Photon</option>
-        <option value="Deming">📊 Deming</option>
+        <option value="Theia">🔭 Theia</option>
+        <option value="Photon">⚡ Photon</option>
+        <option value="Quark">🔬 Quark</option>
         <option value="Max">👤 Max</option>
       </select>
       <textarea 

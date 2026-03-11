@@ -8,13 +8,9 @@
 
 /** @type {Object<string, string>} Agent name → emoji icon mapping */
 const AGENT_ICONS = {
-  'Abbe': '🧠',
-  'Seidel': '🎯',
-  'Iris': '📡',
-  'Zernike': '💻',
-  'Ernst': '📋',
-  'Kanban': '📦',
-  'Deming': '✅',
+  'Theia': '🔭',
+  'Photon': '⚡',
+  'Quark': '🔬',
   'Max': '👤',
   'unknown': '❓'
 };
@@ -361,13 +357,10 @@ function populateAgentFilter() {
   if (!select) return;
   
   const agents = [
-    { name: 'Abbe', icon: '🧠' },
-    { name: 'Zernike', icon: '💻' },
-    { name: 'Seidel', icon: '🎯' },
-    { name: 'Iris', icon: '📡' },
-    { name: 'Deming', icon: '✅' },
-    { name: 'Ernst', icon: '📋' },
-    { name: 'Kanban', icon: '📦' },
+    { name: 'Theia', icon: '🔭' },
+    { name: 'Photon', icon: '⚡' },
+    { name: 'Quark', icon: '🔬' },
+    { name: 'Max', icon: '👤' },
   ];
   
   agents.forEach(agent => {

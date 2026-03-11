@@ -125,7 +125,7 @@
   }
 
   // ── Kanban board ─────────────────────────────────────────────────
-  const COLUMNS = ["inbox", "in_progress", "review", "blocked", "done"];
+  const COLUMNS = ["inbox", "assigned", "in_progress", "review", "blocked", "done"];
 
   function priorityClass(p) {
     if (p >= 8) return "priority-high";
@@ -135,7 +135,7 @@
 
   function renderKanban() {
     const taskCount = document.getElementById("task-count");
-    const activeTasks = tasks.filter(t => t.status !== "done" && t.status !== "archived");
+    const activeTasks = tasks.filter(t => t.status !== "done");
     taskCount && (taskCount.textContent = activeTasks.length || "");
 
     COLUMNS.forEach(status => {
@@ -202,6 +202,7 @@
           <span>${task.priority || "—"} / 10</span>
           <span class="spec-label">Assignees</span>
           <span>${assignees.map(a => `${a.emoji} ${a.name}`).join(", ") || "Unassigned"}</span>
+          ${task.relatedDesignId ? `<span class="spec-label">Design</span><span class="mono" style="font-size:11px">${escHtml(task.relatedDesignId)}</span>` : ""}
           ${task.dueAt ? `<span class="spec-label">Due</span><span>${new Date(task.dueAt).toLocaleDateString()}</span>` : ""}
         </div>
 
@@ -224,11 +225,12 @@
       </div>
     `;
 
-    // Status change
     document.getElementById("task-status-sel")?.addEventListener("change", async e => {
       try {
         await window.DB.mutation("tasks:updateStatus", { id: taskId, status: e.target.value });
-      } catch (err) { console.error("Status update failed:", err); }
+      } catch (err) {
+        console.error("Status update failed:", err);
+      }
     });
   }
 
@@ -274,7 +276,6 @@
           description: desc || undefined,
           priority,
           assigneeIds: assigneeId ? [assigneeId] : [],
-          status: "inbox",
           relatedDesignId: designId || undefined,
         });
         overlay?.classList.add("hidden");
@@ -286,7 +287,6 @@
 
   // ── Mission Control init ──────────────────────────────────────────
   function initMission() {
-    // Close panels
     document.getElementById("close-task-detail")?.addEventListener("click", () => {
       document.getElementById("task-detail-panel")?.classList.add("hidden");
       selectedTaskId = null;
@@ -307,7 +307,6 @@
 
   window.initMission = initMission;
 
-  // Mission control is the default tab — init immediately
   document.addEventListener("DOMContentLoaded", () => initMission());
 
 })();

@@ -3,9 +3,9 @@ const client = new ConvexHttpClient("https://peaceful-frog-360.convex.cloud");
 const api = { agents: { upsert: "agents:upsert" } };
 
 const agents = [
-  { sessionKey:"agent:main:main",   name:"Theia",  role:"Optical Design Lead",    emoji:"🔭", model:"claude-sonnet-4-6", status:"idle" },
-  { sessionKey:"agent:photon:main", name:"Photon", role:"Optimization & Patents", emoji:"⚡", model:"claude-sonnet-4-6", status:"idle" },
-  { sessionKey:"agent:quark:main",  name:"Quark",  role:"Zemax Automation",       emoji:"🔬", model:"gpt-5.3-codex",     status:"idle" },
+  { sessionKey:"agent:theia:main",  name:"Theia",  role:"Optical Design Lead",    emoji:"🔭", model:"gpt-5.4", status:"idle" },
+  { sessionKey:"agent:photon:main", name:"Photon", role:"Optimization & Patents", emoji:"⚡", model:"gpt-5.4", status:"idle" },
+  { sessionKey:"agent:quark:main",  name:"Quark",  role:"Zemax Automation",       emoji:"🔬", model:"gpt-5.4", status:"idle" },
 ];
 
 (async () => {

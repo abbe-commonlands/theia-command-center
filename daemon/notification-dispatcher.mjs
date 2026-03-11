@@ -11,7 +11,7 @@
 import { ConvexHttpClient } from "convex/browser";
 
 // Convex deployment URL
-const CONVEX_URL = "https://aromatic-trout-929.convex.cloud";
+const CONVEX_URL = "https://peaceful-frog-360.convex.cloud";
 
 // Agent session keys mapping
 const AGENT_SESSIONS = {

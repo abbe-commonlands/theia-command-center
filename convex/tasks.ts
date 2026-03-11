@@ -1,14 +1,39 @@
 import { mutation, query } from "./_generated/server";
 import { v } from "convex/values";
 
+const taskStatus = v.union(
+  v.literal("inbox"),
+  v.literal("assigned"),
+  v.literal("in_progress"),
+  v.literal("review"),
+  v.literal("done"),
+  v.literal("blocked")
+);
+
+async function getAgentBySession(ctx: any, sessionKey?: string) {
+  if (!sessionKey) return null;
+  return await ctx.db
+    .query("agents")
+    .withIndex("by_session", (q: any) => q.eq("sessionKey", sessionKey))
+    .first();
+}
+
+function normalizeCreateStatus(args: {
+  status?: "inbox" | "assigned" | "in_progress" | "review" | "done" | "blocked";
+  assigneeIds?: any[];
+}) {
+  if (args.status) return args.status;
+  return args.assigneeIds && args.assigneeIds.length > 0 ? "assigned" : "inbox";
+}
+
 // List all tasks, optionally filtered by status
 export const list = query({
-  args: { status: v.optional(v.string()) },
+  args: { status: v.optional(taskStatus) },
   handler: async (ctx, args) => {
     if (args.status) {
       return await ctx.db
         .query("tasks")
-        .withIndex("by_status", (q) => q.eq("status", args.status as any))
+        .withIndex("by_status", (q) => q.eq("status", args.status))
         .collect();
     }
     return await ctx.db.query("tasks").collect();
@@ -29,43 +54,73 @@ export const create = mutation({
     title: v.string(),
     description: v.optional(v.string()),
     priority: v.optional(v.number()),
+    assigneeIds: v.optional(v.array(v.id("agents"))),
+    status: v.optional(taskStatus),
+    relatedDesignId: v.optional(v.id("lensDesigns")),
+    dueAt: v.optional(v.number()),
+    blockedReason: v.optional(v.string()),
     createdBySession: v.optional(v.string()),
   },
   handler: async (ctx, args) => {
-    // Look up the creating agent
-    let createdBy = undefined;
-    let createdByName = "unknown";
-    
-    if (args.createdBySession) {
-      const agent = await ctx.db
-        .query("agents")
-        .withIndex("by_session", (q) => q.eq("sessionKey", args.createdBySession!))
-        .first();
-      if (agent) {
-        createdBy = agent._id;
-        createdByName = agent.name;
-      }
-    }
+    const creator = await getAgentBySession(ctx, args.createdBySession);
+    const createdBy = creator?._id;
+    const createdByName = creator?.name ?? "unknown";
+    const assigneeIds = args.assigneeIds ?? [];
+    const status = normalizeCreateStatus({ status: args.status, assigneeIds });
 
     const taskId = await ctx.db.insert("tasks", {
       title: args.title,
       description: args.description,
-      status: "inbox",
+      status,
       priority: args.priority ?? 5,
-      assigneeIds: [],
+      assigneeIds,
       createdBy,
       createdByName,
+      relatedDesignId: args.relatedDesignId,
+      dueAt: args.dueAt,
+      blockedReason: args.blockedReason,
     });
 
-    // Log activity
+    const assigneeNames = await Promise.all(
+      assigneeIds.map(async (id) => {
+        const agent = await ctx.db.get(id);
+        return agent?.name ?? "unknown";
+      })
+    );
+
+    const activitySuffix = [
+      assigneeNames.length ? `assigned to ${assigneeNames.join(", ")}` : "",
+      args.relatedDesignId ? "linked to a design" : "",
+      status === "blocked" && args.blockedReason ? `blocked: ${args.blockedReason}` : "",
+    ].filter(Boolean).join(" • ");
+
     await ctx.db.insert("activities", {
       type: "task_created",
       agentId: createdBy,
       agentName: createdByName,
       taskId,
       taskTitle: args.title,
-      message: `${createdByName} created task: ${args.title}`,
+      message: `${createdByName} created task: ${args.title}${activitySuffix ? ` (${activitySuffix})` : ""}`,
+      metadata: {
+        status,
+        assigneeIds,
+        relatedDesignId: args.relatedDesignId,
+        dueAt: args.dueAt,
+        blockedReason: args.blockedReason,
+      },
     });
+
+    if (assigneeIds.length > 0) {
+      await ctx.db.insert("activities", {
+        type: "task_assigned",
+        agentId: createdBy,
+        agentName: createdByName,
+        taskId,
+        taskTitle: args.title,
+        message: `Task "${args.title}" assigned to ${assigneeNames.join(", ")}`,
+        metadata: { assigneeIds },
+      });
+    }
 
     return taskId;
   },
@@ -75,13 +130,7 @@ export const create = mutation({
 export const updateStatus = mutation({
   args: {
     id: v.id("tasks"),
-    status: v.union(
-      v.literal("inbox"),
-      v.literal("assigned"),
-      v.literal("in_progress"),
-      v.literal("review"),
-      v.literal("done")
-    ),
+    status: taskStatus,
     agentSession: v.optional(v.string()),
     notes: v.optional(v.string()),
   },
@@ -90,37 +139,20 @@ export const updateStatus = mutation({
     if (!task) throw new Error("Task not found");
 
     const oldStatus = task.status;
-    
-    // If moving to done, redirect to review for Ernst verification
-    const newStatus = args.status === "done" ? "review" : args.status;
+    await ctx.db.patch(args.id, { status: args.status });
 
-    await ctx.db.patch(args.id, { status: newStatus });
+    const agent = await getAgentBySession(ctx, args.agentSession);
+    const agentId = agent?._id;
+    const agentName = agent?.name ?? "unknown";
 
-    // Get agent info for activity
-    let agentId = undefined;
-    let agentName = "unknown";
-    if (args.agentSession) {
-      const agent = await ctx.db
-        .query("agents")
-        .withIndex("by_session", (q) => q.eq("sessionKey", args.agentSession!))
-        .first();
-      if (agent) {
-        agentId = agent._id;
-        agentName = agent.name;
-      }
-    }
-
-    // Log activity
     await ctx.db.insert("activities", {
       type: "task_moved",
       agentId,
       agentName,
       taskId: args.id,
       taskTitle: task.title,
-      message: args.status === "done" 
-        ? `${agentName} submitted for verification: ${task.title}`
-        : `${agentName} moved "${task.title}" to ${newStatus}`,
-      metadata: { from: oldStatus, to: newStatus, notes: args.notes },
+      message: `${agentName} moved "${task.title}" to ${args.status}`,
+      metadata: { from: oldStatus, to: args.status, notes: args.notes },
     });
 
     return args.id;
@@ -138,12 +170,16 @@ export const assign = mutation({
     const task = await ctx.db.get(args.id);
     if (!task) throw new Error("Task not found");
 
+    const nextStatus = args.assigneeIds.length > 0
+      ? (task.status === "inbox" || task.status === "assigned" ? "assigned" : task.status)
+      : (task.status === "assigned" ? "inbox" : task.status);
+
     await ctx.db.patch(args.id, {
       assigneeIds: args.assigneeIds,
-      status: args.assigneeIds.length > 0 ? "assigned" : task.status,
+      status: nextStatus,
     });
 
-    // Get assignee names for activity
+    const assigner = await getAgentBySession(ctx, args.assignerSession);
     const assigneeNames = await Promise.all(
       args.assigneeIds.map(async (id) => {
         const agent = await ctx.db.get(id);
@@ -151,71 +187,27 @@ export const assign = mutation({
       })
     );
 
-    // Log activity
     await ctx.db.insert("activities", {
       type: "task_assigned",
+      agentId: assigner?._id,
+      agentName: assigner?.name ?? "unknown",
       taskId: args.id,
       taskTitle: task.title,
-      message: `Task "${task.title}" assigned to ${assigneeNames.join(", ")}`,
-      metadata: { assigneeIds: args.assigneeIds },
+      message: args.assigneeIds.length > 0
+        ? `Task "${task.title}" assigned to ${assigneeNames.join(", ")}`
+        : `Task "${task.title}" unassigned`,
+      metadata: { assigneeIds: args.assigneeIds, status: nextStatus },
     });
 
-    return args.id;
-  },
-});
-
-// Generic update (for CLI convenience)
-export const update = mutation({
-  args: {
-    id: v.id("tasks"),
-    status: v.optional(v.union(
-      v.literal("inbox"),
-      v.literal("assigned"),
-      v.literal("in_progress"),
-      v.literal("review"),
-      v.literal("done")
-    )),
-    priority: v.optional(v.number()),
-    title: v.optional(v.string()),
-    description: v.optional(v.string()),
-    agentSession: v.optional(v.string()),
-  },
-  handler: async (ctx, args) => {
-    const task = await ctx.db.get(args.id);
-    if (!task) throw new Error("Task not found");
-
-    const updates: any = {};
-    if (args.status !== undefined) updates.status = args.status;
-    if (args.priority !== undefined) updates.priority = args.priority;
-    if (args.title !== undefined) updates.title = args.title;
-    if (args.description !== undefined) updates.description = args.description;
-
-    await ctx.db.patch(args.id, updates);
-
-    // Get agent info for activity
-    let agentName = "unknown";
-    let agentId = undefined;
-    if (args.agentSession) {
-      const agent = await ctx.db
-        .query("agents")
-        .withIndex("by_session", (q) => q.eq("sessionKey", args.agentSession!))
-        .first();
-      if (agent) {
-        agentName = agent.name;
-        agentId = agent._id;
-      }
-    }
-
-    // Log activity if status changed
-    if (args.status && args.status !== task.status) {
+    if (nextStatus !== task.status) {
       await ctx.db.insert("activities", {
         type: "task_moved",
-        agentId,
-        agentName,
+        agentId: assigner?._id,
+        agentName: assigner?.name ?? "unknown",
         taskId: args.id,
         taskTitle: task.title,
-        message: `${agentName} moved "${task.title}" to ${args.status}`,
-        metadata: { from: task.status, to: args.status },
+        message: `${assigner?.name ?? "unknown"} moved "${task.title}" to ${nextStatus}`,
+        metadata: { from: task.status, to: nextStatus },
       });
     }
 
@@ -223,7 +215,86 @@ export const update = mutation({
   },
 });
 
-// Update priority (Abbe only)
+// Generic update (for CLI / UI convenience)
+export const update = mutation({
+  args: {
+    id: v.id("tasks"),
+    status: v.optional(taskStatus),
+    priority: v.optional(v.number()),
+    title: v.optional(v.string()),
+    description: v.optional(v.string()),
+    assigneeIds: v.optional(v.array(v.id("agents"))),
+    relatedDesignId: v.optional(v.id("lensDesigns")),
+    dueAt: v.optional(v.number()),
+    blockedReason: v.optional(v.string()),
+    agentSession: v.optional(v.string()),
+  },
+  handler: async (ctx, args) => {
+    const task = await ctx.db.get(args.id);
+    if (!task) throw new Error("Task not found");
+
+    const updates: Record<string, any> = {};
+    if (args.status !== undefined) updates.status = args.status;
+    if (args.priority !== undefined) updates.priority = args.priority;
+    if (args.title !== undefined) updates.title = args.title;
+    if (args.description !== undefined) updates.description = args.description;
+    if (args.assigneeIds !== undefined) updates.assigneeIds = args.assigneeIds;
+    if (args.relatedDesignId !== undefined) updates.relatedDesignId = args.relatedDesignId;
+    if (args.dueAt !== undefined) updates.dueAt = args.dueAt;
+    if (args.blockedReason !== undefined) updates.blockedReason = args.blockedReason;
+
+    if (args.assigneeIds !== undefined && args.status === undefined) {
+      if (args.assigneeIds.length > 0 && (task.status === "inbox" || task.status === "assigned")) {
+        updates.status = "assigned";
+      } else if (args.assigneeIds.length === 0 && task.status === "assigned") {
+        updates.status = "inbox";
+      }
+    }
+
+    await ctx.db.patch(args.id, updates);
+
+    const agent = await getAgentBySession(ctx, args.agentSession);
+    const agentName = agent?.name ?? "unknown";
+    const agentId = agent?._id;
+
+    if (updates.status !== undefined && updates.status !== task.status) {
+      await ctx.db.insert("activities", {
+        type: "task_moved",
+        agentId,
+        agentName,
+        taskId: args.id,
+        taskTitle: task.title,
+        message: `${agentName} moved "${task.title}" to ${updates.status}`,
+        metadata: { from: task.status, to: updates.status },
+      });
+    }
+
+    if (args.assigneeIds !== undefined) {
+      const assigneeNames = await Promise.all(
+        args.assigneeIds.map(async (id) => {
+          const assignedAgent = await ctx.db.get(id);
+          return assignedAgent?.name ?? "unknown";
+        })
+      );
+
+      await ctx.db.insert("activities", {
+        type: "task_assigned",
+        agentId,
+        agentName,
+        taskId: args.id,
+        taskTitle: updates.title ?? task.title,
+        message: args.assigneeIds.length > 0
+          ? `Task "${updates.title ?? task.title}" assigned to ${assigneeNames.join(", ")}`
+          : `Task "${updates.title ?? task.title}" unassigned`,
+        metadata: { assigneeIds: args.assigneeIds },
+      });
+    }
+
+    return args.id;
+  },
+});
+
+// Update priority
 export const updatePriority = mutation({
   args: {
     id: v.id("tasks"),
@@ -238,7 +309,7 @@ export const updatePriority = mutation({
   },
 });
 
-// Complete task (goes to review for Ernst)
+// Complete task (moves to review)
 export const complete = mutation({
   args: {
     id: v.id("tasks"),
@@ -259,14 +330,13 @@ export const complete = mutation({
       deliverables: args.deliverables,
     });
 
-    // Log activity
     await ctx.db.insert("activities", {
       type: "task_completed",
       agentId: agent?._id,
       agentName: agent?.name ?? "unknown",
       taskId: args.id,
       taskTitle: task.title,
-      message: `${agent?.name ?? "unknown"} completed "${task.title}" - pending verification`,
+      message: `${agent?.name ?? "unknown"} completed "${task.title}" - pending review`,
       metadata: { deliverables: args.deliverables },
     });
 
@@ -274,22 +344,24 @@ export const complete = mutation({
   },
 });
 
-// Verify task (Ernst only)
+// Verify task (defaults reviewer to Theia)
 export const verify = mutation({
   args: {
     id: v.id("tasks"),
     approved: v.boolean(),
     feedback: v.optional(v.string()),
+    reviewerSession: v.optional(v.string()),
   },
   handler: async (ctx, args) => {
     const task = await ctx.db.get(args.id);
     if (!task) throw new Error("Task not found");
 
-    // Get Ernst's agent ID
-    const ernst = await ctx.db
+    const reviewerSession = args.reviewerSession ?? "agent:theia:main";
+    const reviewer = await ctx.db
       .query("agents")
-      .withIndex("by_session", (q) => q.eq("sessionKey", "agent:ernst:main"))
+      .withIndex("by_session", (q) => q.eq("sessionKey", reviewerSession))
       .first();
+    const reviewerName = reviewer?.name ?? "Theia";
 
     if (args.approved) {
       await ctx.db.patch(args.id, {
@@ -298,22 +370,22 @@ export const verify = mutation({
 
       await ctx.db.insert("activities", {
         type: "task_verified",
-        agentId: ernst?._id,
-        agentName: "Ernst",
+        agentId: reviewer?._id,
+        agentName: reviewerName,
         taskId: args.id,
         taskTitle: task.title,
-        message: `Ernst verified: "${task.title}" ✓`,
+        message: `${reviewerName} verified: "${task.title}" ✓`,
       });
     } else {
       await ctx.db.patch(args.id, { status: "in_progress" });
 
       await ctx.db.insert("activities", {
         type: "task_rejected",
-        agentId: ernst?._id,
-        agentName: "Ernst",
+        agentId: reviewer?._id,
+        agentName: reviewerName,
         taskId: args.id,
         taskTitle: task.title,
-        message: `Ernst returned "${task.title}" - ${args.feedback ?? "needs work"}`,
+        message: `${reviewerName} returned "${task.title}" - ${args.feedback ?? "needs work"}`,
         metadata: { feedback: args.feedback },
       });
     }

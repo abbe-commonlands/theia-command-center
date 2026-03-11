@@ -69,9 +69,9 @@
     // ── Mock data for offline exploration ──────────────────────────
     function getMockData(queryName) {
       if (queryName === "agents:list") return [
-        { _id: "theia", name: "Theia", role: "Optical Design Lead", emoji: "🔭", status: "active", model: "claude-sonnet-4-6", contextPercent: 24, sessionKey: "agent:main:main" },
-        { _id: "photon", name: "Photon", role: "Optimization & Patents", emoji: "⚡", status: "idle", model: "claude-sonnet-4-6", contextPercent: 0, sessionKey: "agent:photon:main" },
-        { _id: "quark", name: "Quark", role: "Zemax Automation", emoji: "🔬", status: "idle", model: "gpt-5.3-codex", contextPercent: 0, sessionKey: "agent:quark:main" },
+        { _id: "theia", name: "Theia", role: "Optical Design Lead", emoji: "🔭", status: "active", model: "gpt-5.4", contextPercent: 24, sessionKey: "agent:theia:main" },
+        { _id: "photon", name: "Photon", role: "Optimization & Patents", emoji: "⚡", status: "idle", model: "gpt-5.4", contextPercent: 0, sessionKey: "agent:photon:main" },
+        { _id: "quark", name: "Quark", role: "Zemax Automation", emoji: "🔬", status: "idle", model: "gpt-5.4", contextPercent: 0, sessionKey: "agent:quark:main" },
       ];
       if (queryName === "lensDesigns:list" || queryName === "lensDesigns:listActive") return [
         { _id: "d1", name: "DSL952 Wide-Angle M12", designForm: "retrofocus", mount: "M12", status: "optimizing", focalLength: 2.8, fNumber: 2.0, fovDeg: 120, sensorFormat: '1/2.9"', elementCount: 5, groupCount: 5, stopPosition: "front", patentClearance: "clear", currentMFValue: 0.0234, rmsSpotUm: 3.2, mtfAt100: 0.35, distortionPct: -8.2, createdAt: Date.now() - 864e5, updatedAt: Date.now() - 3600e3 },

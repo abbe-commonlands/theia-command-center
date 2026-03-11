@@ -9,9 +9,9 @@ if (!CONVEX_URL) {
 }
 
 const agents = [
-  { name: "Theia",  role: "Optical Design Lead",    emoji: "🔭", status: "idle", sessionKey: "agent:main:main",   model: "claude-sonnet-4-6" },
-  { name: "Photon", role: "Optimization & Patents", emoji: "⚡", status: "idle", sessionKey: "agent:photon:main", model: "claude-sonnet-4-6" },
-  { name: "Quark",  role: "Zemax Automation",       emoji: "🔬", status: "idle", sessionKey: "agent:quark:main",  model: "gpt-5.3-codex" },
+  { name: "Theia",  role: "Optical Design Lead",    emoji: "🔭", status: "idle", sessionKey: "agent:theia:main",  model: "gpt-5.4" },
+  { name: "Photon", role: "Optimization & Patents", emoji: "⚡", status: "idle", sessionKey: "agent:photon:main", model: "gpt-5.4" },
+  { name: "Quark",  role: "Zemax Automation",       emoji: "🔬", status: "idle", sessionKey: "agent:quark:main",  model: "gpt-5.4" },
 ];
 
 async function seed() {

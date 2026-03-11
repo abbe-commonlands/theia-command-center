@@ -130,40 +130,22 @@
 
     const defaults = [
       {
-        id: "agent:main:main",
-        name: "Abbe",
-        role: "Squad Lead",
-        emoji: "🧠",
-      },
-      {
-        id: "agent:sales:main",
-        name: "Seidel",
-        role: "Sales",
-        emoji: "💼",
-      },
-      {
-        id: "agent:marketing:main",
-        name: "Iris",
-        role: "Marketing",
-        emoji: "🎨",
-      },
-      {
-        id: "agent:engineering:main",
+        id: "agent:theia:main",
         name: "Theia",
-        role: "Engineering",
-        emoji: "🔬",
+        role: "Optical Design Lead",
+        emoji: "🔭",
       },
       {
-        id: "agent:operations:main",
+        id: "agent:photon:main",
         name: "Photon",
-        role: "Operations",
+        role: "Optimization & Patents",
         emoji: "⚡",
       },
       {
-        id: "agent:softwaredeveloper:main",
-        name: "Zernike",
-        role: "Software Dev",
-        emoji: "💻",
+        id: "agent:quark:main",
+        name: "Quark",
+        role: "Zemax Automation",
+        emoji: "🔬",
       },
     ];
 

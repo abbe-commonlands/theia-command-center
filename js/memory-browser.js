@@ -3,7 +3,7 @@
  * Renders markdown using marked.js (CDN). No other dependencies.
  */
 (() => {
-  const AGENTS = ["Abbe", "Zernike", "Seidel", "Iris", "Kanban", "Deming", "Ernst"];
+  const AGENTS = ["Theia", "Photon", "Quark"];
   const SOURCE_LABELS = {
     daily: "📅 Daily Note",
     longterm: "🧠 Long-Term",

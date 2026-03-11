@@ -4,7 +4,7 @@
 
 set -euo pipefail
 
-EXPECTED_URL="https://aromatic-trout-929.convex.cloud"
+EXPECTED_URL="https://peaceful-frog-360.convex.cloud"
 
 # 1. Check what URL the browser uses
 BROWSER_URL=$(grep -o 'https://[a-z0-9-]*\.convex\.cloud' js/convex-client.js | head -1)

@@ -244,18 +244,14 @@ export const ping = mutation({
   },
 });
 
-// Seed initial agents
+// Seed initial engineering agents
 export const seed = mutation({
   args: {},
   handler: async (ctx) => {
     const agents = [
-      { sessionKey: "agent:main:main", name: "Abbe", role: "Squad Lead & Orchestrator", emoji: "🧠", model: "codex" },
-      { sessionKey: "agent:seidel:main", name: "Seidel", role: "Sales & Business Development", emoji: "🎯", model: "codex" },
-      { sessionKey: "agent:iris:main", name: "Iris", role: "Marketing & Communications", emoji: "📡", model: "codex" },
-      { sessionKey: "agent:zernike:main", name: "Zernike", role: "Software Development", emoji: "💻", model: "codex" },
-      { sessionKey: "agent:kanban:main", name: "Kanban", role: "Operations", emoji: "📦", model: "codex" },
-      { sessionKey: "agent:deming:main", name: "Deming", role: "Quality Management", emoji: "✅", model: "codex" },
-      { sessionKey: "agent:ernst:main", name: "Ernst", role: "Code Review & PR Gatekeeper", emoji: "🔍", model: "codex" },
+      { sessionKey: "agent:theia:main", name: "Theia", role: "Optical Design Lead", emoji: "🔭", model: "gpt-5.4" },
+      { sessionKey: "agent:photon:main", name: "Photon", role: "Optimization & Patents", emoji: "⚡", model: "gpt-5.4" },
+      { sessionKey: "agent:quark:main", name: "Quark", role: "Zemax Automation", emoji: "🔬", model: "gpt-5.4" },
     ];
 
     let seededCount = 0;

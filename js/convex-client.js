@@ -3,22 +3,20 @@
  * Real-time database with subscriptions
  * 
  * ╔══════════════════════════════════════════════════════════════════════╗
- * ║  Convex URL must match where `npx convex run` writes data.         ║
+ * ║  ACTIVE: https://peaceful-frog-360.convex.cloud                    ║
+ * ║  Project: theiacommandcenter (Theia Engineering Command Center)    ║
  * ║                                                                     ║
- * ║  ACTIVE: https://aromatic-trout-929.convex.cloud                   ║
- * ║  (npx convex dashboard opens aromatic-trout-929;                   ║
- * ║   all agent heartbeats write here via npx convex run)              ║
+ * ║  To deploy schema/functions:                                        ║
+ * ║    npx convex login  (select theiacommandcenter project)           ║
+ * ║    npx convex deploy --prod                                         ║
  * ║                                                                     ║
- * ║  RETIRED: quick-whale-641 — has stale data, agents don't write     ║
- * ║  there anymore. The old "LOCKED" warning was protecting a stale    ║
- * ║  URL while all live data went to aromatic-trout-929.               ║
- * ║                                                                     ║
- * ║  To verify: curl the /api/query endpoint on both and compare.      ║
+ * ║  RETIRED: aromatic-trout-929 — Abbe business command center       ║
+ * ║  RETIRED: quick-whale-641   — old dev deployment                   ║
  * ╚══════════════════════════════════════════════════════════════════════╝
  */
 (() => {
-  // Production Convex — where npx convex run targets
-  const CONVEX_URL = "https://aromatic-trout-929.convex.cloud";
+  // Production Convex — Theia Engineering Command Center
+  const CONVEX_URL = "https://peaceful-frog-360.convex.cloud";
   
   let client = null;
   let listeners = new Map();
@@ -172,14 +170,23 @@
         title: task.title,
         description: task.description,
         priority: task.priority,
+        assigneeIds: task.assigneeIds,
+        status: task.status,
+        relatedDesignId: task.relatedDesignId,
+        dueAt: task.dueAt,
+        blockedReason: task.blockedReason,
         createdBySession: task.createdBySession,
       });
     },
     
     async update(id, updates) {
       console.log("tasks.update called with:", { id, updates });
-      // Route to appropriate mutation based on what's being updated
-      if (updates.status !== undefined) {
+      const updateKeys = Object.keys(updates || {});
+      const statusOnly = updateKeys.length > 0 && updateKeys.every(k => ["status", "agentSession", "notes"].includes(k));
+      const priorityOnly = updateKeys.length === 1 && updateKeys[0] === "priority";
+      const assigneeOnly = updateKeys.length > 0 && updateKeys.every(k => ["assigneeIds", "assignerSession"].includes(k));
+
+      if (statusOnly && updates.status !== undefined) {
         const args = { 
           id, 
           status: updates.status,
@@ -191,17 +198,29 @@
         console.log("tasks:updateStatus result:", result);
         return result;
       }
-      if (updates.priority !== undefined) {
+      if (priorityOnly) {
         return await mutate("tasks:updatePriority", { id, priority: updates.priority });
       }
-      if (updates.assigneeIds !== undefined) {
+      if (assigneeOnly && updates.assigneeIds !== undefined) {
         return await mutate("tasks:assign", { 
           id, 
           assigneeIds: updates.assigneeIds,
           assignerSession: updates.assignerSession 
         });
       }
-      console.warn("Unknown task update:", updates);
+
+      return await mutate("tasks:update", {
+        id,
+        status: updates.status,
+        priority: updates.priority,
+        title: updates.title,
+        description: updates.description,
+        assigneeIds: updates.assigneeIds,
+        relatedDesignId: updates.relatedDesignId,
+        dueAt: updates.dueAt,
+        blockedReason: updates.blockedReason,
+        agentSession: updates.agentSession,
+      });
     },
     
     async complete(id, deliverables, agentSession) {
@@ -266,13 +285,13 @@
     },
     
     async create(comment) {
-      // Map from comment format to message format
-      // Note: Abbe's session is agent:main:main, others are agent:name:main
-      // Max doesn't have an agent, so use Abbe's session
-      const agentName = comment.fromAgent?.toLowerCase() || 'main';
+      // Map from comment format to message format.
+      // Engineering team sessions use agent:<name>:main.
+      // If Max leaves a comment, route it through Theia's engineering session.
+      const agentName = comment.fromAgent?.toLowerCase() || 'theia';
       let sessionKey;
-      if (agentName === 'abbe' || agentName === 'max') {
-        sessionKey = 'agent:main:main';
+      if (agentName === 'max') {
+        sessionKey = 'agent:theia:main';
       } else {
         sessionKey = `agent:${agentName}:main`;
       }
